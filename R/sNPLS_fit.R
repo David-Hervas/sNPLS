@@ -409,6 +409,7 @@ repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK =
   fhat <- ks::kde(resdata2, H=H.pi, compute.cont=TRUE)
   print(paste(invariantes, " is(are) constant with a value of ", resdata[1,invariantes], sep=""))
   plot(fhat)
+  return(invisible(resdata2))
 }
 
 #' Summary for sNPLS models
