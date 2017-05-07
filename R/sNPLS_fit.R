@@ -400,7 +400,15 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @export
 repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK = 1:dim(X_npls)[3],
                     nfold = 10, parallel = TRUE, free_cores = 2, times=30){
-  rep_cv<-pbapply::pbreplicate(times, cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = parallel, nfold = nfold))
+  if(parallel & (parallel::detectCores()>1)){
+    cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
+    parallel::clusterExport(cl, list(deparse(substitute(X_npls)), deparse(substitute(Y_npls))))
+    parallel::clusterCall(cl, function() require(sNPLS))
+    rep_cv<-parallel::parSapply(cl, 1:times, function(x) cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold))
+    parallel::stopCluster(cl)
+  } else {
+    rep_cv<-pbapply::pbreplicate(times, cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold))
+  }
   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), keepJ=sapply(rep_cv[1,], function(x) x[[2]]),
                       keepK=sapply(rep_cv[1,], function(x) x[[3]]))
   invariantes<-names(resdata)[sapply(resdata, function(x) var(x, na.rm=TRUE)==0)]
