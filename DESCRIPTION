@@ -1,7 +1,7 @@
 Package: sNPLS
 Type: Package
 Title: NPLS Regression with L1 Penalization
-Version: 0.1.7
+Version: 0.1.8
 Author: David Hervas
 Maintainer: David Hervas <ddhervas@yahoo.es>
 Depends: R (>= 2.10)
