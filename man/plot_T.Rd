@@ -4,7 +4,7 @@
 \alias{plot_T}
 \title{Internal function for \code{plot.sNPLS}}
 \usage{
-plot_T(x, comps = c(1, 2), ...)
+plot_T(x, comps, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}
