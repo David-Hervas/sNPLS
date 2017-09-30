@@ -9,7 +9,7 @@
 \arguments{
 \item{x}{A sNPLS model fit}
 
-\item{type}{The type of plot. One of those: "T", "U", "Wj", "Wk" or "time"}
+\item{type}{The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"}
 
 \item{comps}{A vector of length two with the components to plot}
 

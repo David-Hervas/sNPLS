@@ -236,7 +236,7 @@ cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK) {
 #' @description Different plots for sNPLS model fits
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
-#' @param type The type of plot. One of those: "T", "U", "Wj", "Wk" or "time"
+#' @param type The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the type specified in the \code{type} parameter
 #' @importFrom graphics abline matplot plot text
@@ -375,12 +375,15 @@ predict.sNPLS <- function(object, newX, rescale = TRUE, ...) {
 #' @param ... Arguments passed to \code{car::scatter3d}
 #' @return A 3D scatter plot with the results of the cross validation
 #' @export
-plot.cvsNPLS <- function(x, ...) {
-  car::scatter3d(x$cv_grid$keepJ, x$cv_mean, x$cv_grid$keepK, groups = if (length(unique(x$cv_grid$ncomp)) >
-                                                                           1)
-    factor(x$cv_grid$ncomp) else NULL, surface = TRUE, fit = "smooth", axis.col = c("black", "black", "black"), xlab = "KeepJ",
-    ylab = "CVE", zlab = "KeepK", parallel = FALSE, ...)
-  rgl::grid3d(c("x", "y", "z"), col = "gray", lwd = 1, lty = 1, n = 5)
+plot.cvsNPLS <- function(x, facets=TRUE, ...) {
+  df_grid <- data.frame(KeepJ=x$cv_grid$keepJ, KeepK=paste("KeepK =", x$cv_grid$keepK, sep=" "), CVE=x$cv_mean, Ncomp=paste("Ncomp =", x$cv_grid$ncomp, sep=" "))
+  if(facets){
+    ggplot2::ggplot(prueba, aes(x=KeepJ, y=CVE))+geom_line()+facet_grid(KeepK ~ Ncomp)+scale_x_continuous(breaks=round(seq(0, max(prueba$KeepJ), by= round(max(prueba$KeepJ)/20)*2)))+theme_bw()
+  } else{
+    car::scatter3d(x$cv_grid$keepJ, x$cv_mean, x$cv_grid$keepK, groups = if (length(unique(x$cv_grid$ncomp)) > 1) factor(x$cv_grid$ncomp) else NULL,
+                   surface = TRUE, fit = "smooth", axis.col = c("black", "black", "black"), xlab = "KeepJ", ylab = "CVE", zlab = "KeepK", parallel = FALSE, ...)
+    rgl::grid3d(c("x", "y", "z"), col = "gray", lwd = 1, lty = 1, n = 5)
+  }
 }
 
 #' Coefficients from a sNPLS model
@@ -395,8 +398,11 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
   R <- Rmatrix(object)
   Bnpls <- R %*% object$B %*% t(object$Q)
   colnames(Bnpls) <- "Estimate"
-  if (as.matrix)
+  if (as.matrix){
     dim(Bnpls) <- c(dim(object$Wj)[1], dim(object$Wk)[1])
+    rownames(Bnpls) <- rownames(object$Wj)
+    colnames(Bnpls) <- rownames(object$Wk)
+  }
   return(Bnpls)
 }
 
@@ -412,11 +418,11 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param parallel Should the computations be performed in parallel?
 #' @param free_cores If parallel computations are performed how many cores are left unused
 #' @param times Number of repetitions of the cross-validation
-#' @return A density plot with the results of the cross-validation
+#' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
 #' @importFrom stats var
 #' @export
 repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK = 1:dim(X_npls)[3],
-                    nfold = 10, parallel = TRUE, free_cores = 2, times=30){
+                    nfold = 10, parallel = TRUE, free_cores = 2, times=30, ...){
   if(parallel & (parallel::detectCores()>1)){
     cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
     parallel::clusterExport(cl, list(deparse(substitute(X_npls)), deparse(substitute(Y_npls))))
@@ -433,7 +439,22 @@ repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK =
   H.pi <- ks::Hpi(resdata2)
   fhat <- ks::kde(resdata2, H=H.pi, compute.cont=TRUE)
   print(paste(invariantes, " is(are) constant with a value of ", resdata[1,invariantes], sep=""))
-  plot(fhat)
+  plot(fhat, display="filled.contour2", cont=seq(10,90,by=10), axes=FALSE, if(ncol(resdata2)==3) box=FALSE, xlab="", ylab="", zlab="")
+  if(ncol(resdata2)==3){
+    grid3d(c("x", "y+", "z"), at = NULL, col = "gray", lwd = 1, lty = 1, n = 5)
+    axis3d(edge="x--", at=c(min(resdata2$ncomp):max(resdata2$ncomp)))
+    axis3d(edge="y+-", at=c(min(resdata2$keepJ):max(resdata2$keepJ)))
+    axis3d(edge="z--", at=c(min(resdata2$keepK):max(resdata2$keepK)))
+    title3d(xlab="ncomp", ylab="keepJ", zlab="keepK")
+    mtext3d("ncomp", edge="x", at=2.5, font=2)
+    mtext3d(edge="y+", line=1.8, "keepJ", font=2)
+    mtext3d(edge="z", line=2.5, "keepK", font=2, las=2)
+  } else{
+    axis(1, at=min(resdata2[,1]):max(resdata2[,1]))
+    axis(2, at=min(resdata2[,2]:max(resdata2[,2])))
+    mtext(names(resdata2)[1], 1, line=2.5)
+    mtext(names(resdata2)[2], 2, line=2.5)
+  }
   return(invisible(resdata))
 }
 
