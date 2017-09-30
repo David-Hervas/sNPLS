@@ -380,7 +380,7 @@ plot.cvsNPLS <- function(x, facets=TRUE, ...) {
   df_grid <- data.frame(KeepJ=x$cv_grid$keepJ, KeepK=paste("KeepK =", x$cv_grid$keepK, sep=" "), CVE=x$cv_mean, Ncomp=paste("Ncomp =", x$cv_grid$ncomp, sep=" "))
   if(facets){
     ggplot2::ggplot(df_grid, ggplot2::aes_string(x="KeepJ", y="CVE"))+ggplot2::geom_line()+ggplot2::facet_grid(KeepK ~ Ncomp)+
-      ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(min(df_grid$keepJ):max(df_grid$keepJ)) else round(seq(min(df_grid$keepJ), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
+      ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$KeepJ)))<=10) round(max(0, min(df_grid$KeepJ)):max(df_grid$KeepJ)) else round(seq(max(0, min(df_grid$KeepJ)), max(df_grid$KeepJ), by= ceiling(max(df_grid$KeepJ)/20)*2)))+
       ggplot2::theme_bw()
   } else{
     car::scatter3d(x$cv_grid$keepJ, x$cv_mean, x$cv_grid$keepK, groups = if (length(unique(x$cv_grid$ncomp)) > 1) factor(x$cv_grid$ncomp) else NULL,
@@ -464,8 +464,8 @@ plot.repeatcv <- function(x, ...){
   ggplot2::ggplot(df_grid, ggplot2::aes_string("keepJ", "keepK", fill="density"))+ggplot2::geom_raster()+
     ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
     ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x="keepJ", y="keepK"), data=positions) +ggplot2::facet_grid(~Ncomp)+
-    ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(min(df_grid$keepJ):max(df_grid$keepJ)) else round(seq(min(df_grid$keepJ), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
-    ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid$keepK)))<=10) round(min(df_grid$keepK):max(df_grid$keepK)) else round(seq(min(df_grid$keepK), max(df_grid$keepK), by= ceiling(max(df_grid$keepK)/20)*2)))
+    ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(max(0, min(df_grid$keepJ)):max(df_grid$keepJ)) else round(seq(max(0, min(df_grid$keepJ)), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
+    ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid$keepK)))<=10) round(max(0, min(df_grid$keepK)):max(df_grid$keepK)) else round(seq(max(0, min(df_grid$keepK)), max(df_grid$keepK), by= ceiling(max(df_grid$keepK)/20)*2)))
 }
 
 #' Summary for sNPLS models
