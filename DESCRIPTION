@@ -1,11 +1,11 @@
 Package: sNPLS
 Type: Package
 Title: NPLS Regression with L1 Penalization
-Version: 0.2.0
+Version: 0.2.2
 Author: David Hervas
 Maintainer: David Hervas <ddhervas@yahoo.es>
 Depends: R (>= 2.10)
-Imports: car, ks, MASS, Matrix, parallel, pbapply, plotrix, rgl
+Imports: car, ggplot2, ks, MASS, Matrix, parallel, pbapply, plotrix, rgl
 Description: Tools for performing variable selection in three-way data using N-PLS 
     in combination with L1 penalization. The N-PLS model (Rasmus Bro, 1996 
     <DOI:10.1002/(SICI)1099-128X(199601)10:1%3C47::AID-CEM400%3E3.0.CO;2-C>) is the 

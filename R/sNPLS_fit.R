@@ -372,6 +372,7 @@ predict.sNPLS <- function(object, newX, rescale = TRUE, ...) {
 #'
 #' @description Plot function for visualization of cross validation results for sNPLS models
 #' @param x A cv_sNPLS object
+#' @param facets Chose between a facet plot or a 3-D scatter plot
 #' @param ... Arguments passed to \code{car::scatter3d}
 #' @return A 3D scatter plot with the results of the cross validation
 #' @export
@@ -408,7 +409,7 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 
 #' Repeated cross-validation for sNPLS models
 #'
-#' @description Performs repeated cross-validation and represents results in a plot
+#' @description Performs repeated cross-validatiodn and represents results in a plot
 #' @param X_npls A three-way array containing the predictors.
 #' @param Y_npls A matrix containing the response.
 #' @param ncomp A vector with the different number of components to test
@@ -417,6 +418,7 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param nfold Number of folds for the cross-validation
 #' @param parallel Should the computations be performed in parallel?
 #' @param free_cores If parallel computations are performed how many cores are left unused
+#' @param ... Currently not used
 #' @param times Number of repetitions of the cross-validation
 #' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
 #' @importFrom stats var
@@ -434,28 +436,31 @@ repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK =
   }
   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), keepJ=sapply(rep_cv[1,], function(x) x[[2]]),
                       keepK=sapply(rep_cv[1,], function(x) x[[3]]))
-  invariantes<-names(resdata)[sapply(resdata, function(x) var(x, na.rm=TRUE)==0)]
-  resdata2<-resdata[,sapply(resdata, function(x) var(x, na.rm=TRUE)!=0)]
-  H.pi <- ks::Hpi(resdata2)
-  fhat <- ks::kde(resdata2, H=H.pi, compute.cont=TRUE)
-  print(paste(invariantes, " is(are) constant with a value of ", resdata[1,invariantes], sep=""))
-  plot(fhat, display="filled.contour2", cont=seq(10,90,by=10), axes=FALSE, if(ncol(resdata2)==3) box=FALSE, xlab="", ylab="", zlab="")
-  if(ncol(resdata2)==3){
-    grid3d(c("x", "y+", "z"), at = NULL, col = "gray", lwd = 1, lty = 1, n = 5)
-    axis3d(edge="x--", at=c(min(resdata2$ncomp):max(resdata2$ncomp)))
-    axis3d(edge="y+-", at=c(min(resdata2$keepJ):max(resdata2$keepJ)))
-    axis3d(edge="z--", at=c(min(resdata2$keepK):max(resdata2$keepK)))
-    title3d(xlab="ncomp", ylab="keepJ", zlab="keepK")
-    mtext3d("ncomp", edge="x", at=2.5, font=2)
-    mtext3d(edge="y+", line=1.8, "keepJ", font=2)
-    mtext3d(edge="z", line=2.5, "keepK", font=2, las=2)
-  } else{
-    axis(1, at=min(resdata2[,1]):max(resdata2[,1]))
-    axis(2, at=min(resdata2[,2]:max(resdata2[,2])))
-    mtext(names(resdata2)[1], 1, line=2.5)
-    mtext(names(resdata2)[2], 2, line=2.5)
-  }
-  return(invisible(resdata))
+  class(resdata)<-c("repeatcv", "data.frame")
+  return(resdata)
+}
+
+#' Density plot for repat_cv results
+#'
+#' @description Plots a grid of slices from the 3-D kernel denity estimates of the repeat_cv function
+#' @param x A repeatcv object
+#' @param ... Further arguments passed to plot
+#' @return A grid of slices from of a 3-D density plot of the results of the repeated cross-validation
+#' @importFrom grDevices colorRampPalette
+#' @export
+plot.repeatcv <- function(x, ...){
+  H.pi <- ks::Hpi(x)
+  fhat <- ks::kde(x, H=H.pi, compute.cont=TRUE)
+  ncomp_values <- sapply(sort(unique(fhat$x[,1])), function(x) which.min(abs(fhat$eval.points[[1]]-x)))
+  positions <- as.data.frame(fhat$x)
+  positions$Ncomp <- paste("Ncomp =", positions$ncomp)
+  df_grid <- expand.grid(keepJ=fhat$eval.points[[2]], keepK=fhat$eval.points[[3]])
+  df_grid <- df_grid[rep(1:nrow(df_grid), length(ncomp_values)),]
+  df_grid$density <- unlist(lapply(ncomp_values, function(x) as.numeric(matrix(fhat$estimate[,,x], ncol=1))))
+  df_grid$Ncomp <- rep(paste("Ncomp =", sort(unique(positions$ncomp))), each=nrow(prueba3))
+  ggplot(df_grid, aes(keepJ, keepK, fill=density))+geom_raster()+
+    scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+theme_classic()+
+    geom_count(inherit.aes = FALSE, aes(x=keepJ, y=keepK), data=positions) +facet_grid(~Ncomp)
 }
 
 #' Summary for sNPLS models
