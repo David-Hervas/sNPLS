@@ -451,7 +451,9 @@ repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK =
 #' @importFrom grDevices colorRampPalette
 #' @export
 plot.repeatcv <- function(x, ...){
+  x.old <- x
   x<-x[,sapply(x, function(x) var(x)>0), drop=FALSE]
+  if(ncol(x) < ncol(x.old)) warning(paste("\n", colnames(x.old)[!colnames(x.old) %in% colnames(x)], "is constant at", x.old[1,colnames(x.old)[!colnames(x.old) %in% colnames(x)]]))
   if(ncol(x) == 1){
     ggplot2::ggplot(x, ggplot2::aes_string(x=colnames(x)))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
   } else{
