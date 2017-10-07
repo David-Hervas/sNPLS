@@ -474,7 +474,7 @@ plot.repeatcv <- function(x, ...){
         ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(max(0, min(df_grid$keepJ)):max(df_grid$keepJ)) else round(seq(max(0, min(df_grid$keepJ)), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
         ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid$keepK)))<=10) round(max(0, min(df_grid$keepK)):max(df_grid$keepK)) else round(seq(max(0, min(df_grid$keepK)), max(df_grid$keepK), by= ceiling(max(df_grid$keepK)/20)*2)))+
         ggplot2::scale_size_area(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
-                                 labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else paste(paste((1:max(ftable(positions)))[round(seq(1, max(ftable(positions)), length.out = 7))], c(rep("-", 6), ""), sep=""), c((1:max(ftable(positions)))[round(seq(1, max(ftable(positions)), length.out = 7))[-1]]-1, ""), sep=""))
+                                 labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
     } else {
       positions <- as.data.frame(fhat$x)
       df_grid <- expand.grid(V1=fhat$eval.points[[1]], V2=fhat$eval.points[[2]])
@@ -486,7 +486,7 @@ plot.repeatcv <- function(x, ...){
         ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid[,1])))<=10) round(max(0, min(df_grid[,1])):max(df_grid[,1])) else round(seq(max(0, min(df_grid[,1])), max(df_grid[,1]), by= ceiling(max(df_grid[,1])/20)*2)))+
         ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid[,2])))<=10) round(max(0, min(df_grid[,2])):max(df_grid[,2])) else round(seq(max(0, min(df_grid[,2])), max(df_grid[,2]), by= ceiling(max(df_grid[,2])/20)*2)))#+
         ggplot2::scale_size_continuous(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
-                                 labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else paste(paste((1:max(ftable(positions)))[round(seq(1, max(ftable(positions)), length.out = 7))], c(rep("-", 6), ""), sep=""), c((1:max(ftable(positions)))[round(seq(1, max(ftable(positions)), length.out = 7))[-1]]-1, ""), sep=""))
+                                 labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
     }
   }
 }
