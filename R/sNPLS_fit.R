@@ -453,6 +453,7 @@ repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK =
 #' @param ... Further arguments passed to plot
 #' @return A grid of slices from of a 3-D density plot of the results of the repeated cross-validation
 #' @importFrom grDevices colorRampPalette
+#' @importFrom stats ftable
 #' @export
 plot.repeatcv <- function(x, ...){
   x.old <- x
