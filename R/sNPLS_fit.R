@@ -48,6 +48,10 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000, keepJ
     u <- Y[, S == max(S)]  #Column with the highest variance
     # Unfolding of XN en 2-D
     X <- unfold3w(XN)
+    #Check for zero variance columns and fix them with some noise
+    if(any(apply(X, 2, sd)==0)){
+      X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
+    }
     # Center and scale
     Xd <- scale(X)
     x_center <- attr(Xd, "scaled:center")
