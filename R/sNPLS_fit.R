@@ -362,7 +362,7 @@ plot_variables <- function(x, comps, ...) {
 predict.sNPLS <- function(object, newX, rescale = TRUE, ...) {
   newX <- unfold3w(newX)
   # Centrado y escalado
-  Xstd <- (newX - object$Standarization$CenterX)/object$Standarization$ScaleX
+  Xstd <- t((t(newX) - object$Standarization$CenterX)/object$Standarization$ScaleX)
   R <- Rmatrix(object)
   Bnpls <- R %*% object$B %*% t(object$Q)
   Yval <- Xstd %*% Bnpls
