@@ -21,8 +21,9 @@
 #' fit<-sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
 #' @importFrom stats predict sd
 #' @export
-sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000, keepJ = rep(ncol(XN),
-    ncomp), keepK = rep(rev(dim(XN))[1], ncomp), silent = F) {
+sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
+                  keepJ = rep(ncol(XN), ncomp), keepK = rep(rev(dim(XN))[1], ncomp),
+                  silent = F) {
 
     mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
     if (length(dim(XN)) != 3)
@@ -69,15 +70,17 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000, keepJ
             wsupraj <- svd.z$u[, 1]
             # L1 penalization for wsupraj
             if (nj != 0) {
-                wsupraj <- ifelse(abs(wsupraj) > abs(wsupraj[order(abs(wsupraj))][nj]), (abs(wsupraj) -
-                  abs(wsupraj[order(abs(wsupraj))][nj])) * sign(wsupraj), 0)
+                wsupraj <- ifelse(abs(wsupraj) > abs(wsupraj[order(abs(wsupraj))][nj]),
+                                  (abs(wsupraj) - abs(wsupraj[order(abs(wsupraj))][nj])) *
+                                    sign(wsupraj), 0)
             }
             ##########
             wsuprak <- svd.z$v[, 1]
             # L1 penalization for wsuprak
             if (nk != 0) {
-                wsuprak <- ifelse(abs(wsuprak) > abs(wsuprak[order(abs(wsuprak))][nk]), (abs(wsuprak) -
-                  abs(wsuprak[order(abs(wsuprak))][nk])) * sign(wsuprak), 0)
+                wsuprak <- ifelse(abs(wsuprak) > abs(wsuprak[order(abs(wsuprak))][nk]),
+                                  (abs(wsuprak) - abs(wsuprak[order(abs(wsuprak))][nk])) *
+                                    sign(wsuprak), 0)
             }
             ##########
             tf <- Xd %*% kronecker(wsuprak, wsupraj)
@@ -118,11 +121,12 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000, keepJ
     rownames(WsupraK) <- x3d.names
     rownames(Q) <- yvar.names
     rownames(Tm) <- rownames(U) <- x.names
-    colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <- colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.",
-        1:ncomp)
-    output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P, Gu = Gu, ncomp = ncomp,
-        Yadj = Yadj, SqrdE = SqrdE, Standarization = list(ScaleX = x_scale, CenterX = x_center, ScaleY = y_scale,
-            CenterY = y_center))
+    colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
+      colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
+    output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
+                   Gu = Gu, ncomp = ncomp, Yadj = Yadj, SqrdE = SqrdE,
+                   Standarization = list(ScaleX = x_scale, CenterX = x_center,
+                                         ScaleY = y_scale, CenterY = y_center))
     class(output)<-"sNPLS"
     return(output)
 }
@@ -187,11 +191,12 @@ unfold3w <- function(x) {
 #' cv1<- cv_snpls(X_npls, Y_npls, ncomp=1:2, keepJ = 1:3, keepK = 1:2, parallel = FALSE)
 #' }
 #' @export
-cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK = 1:dim(X_npls)[3],
-    nfold = 10, parallel = TRUE, free_cores = 2) {
+cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
+                     keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2) {
     if (parallel & (parallel::detectCores()>1)) {
         cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
-        parallel::clusterExport(cl, list(deparse(substitute(X_npls)), deparse(substitute(Y_npls))))
+        parallel::clusterExport(cl, list(deparse(substitute(X_npls)),
+                                         deparse(substitute(Y_npls))))
         parallel::clusterCall(cl, function() require(sNPLS))
     }
     top <- ceiling(dim(X_npls)[1]/nfold)
@@ -200,10 +205,15 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK 
     SqrdE <- numeric()
     applied_fun <- function(y) {
         sapply(1:nfold, function(x) {
-            tryCatch(cv_fit(xtrain = X_npls[x != foldid, , ], ytrain = Y_npls[x != foldid, , drop = FALSE],
-                xval = X_npls[x == foldid, , ], yval = Y_npls[x == foldid, , drop = FALSE], ncomp = y["ncomp"],
-                keepJ = rep(y["keepJ"], y["ncomp"]), keepK = rep(y["keepK"], y["ncomp"])), error=function(x) NA)
-        })
+            tryCatch(cv_fit(xtrain = X_npls[x != foldid, , ],
+                            ytrain = Y_npls[x != foldid, , drop = FALSE],
+                            xval = X_npls[x == foldid, , ],
+                            yval = Y_npls[x == foldid, , drop = FALSE],
+                            ncomp = y["ncomp"],
+                            keepJ = rep(y["keepJ"], y["ncomp"]),
+                            keepK = rep(y["keepK"], y["ncomp"])),
+                     error=function(x) NA)
+          })
     }
     if (parallel) {
         cv_res <- parallel::parApply(cl, search.grid, 1, applied_fun)
@@ -212,7 +222,8 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK 
     cv_mean <- apply(cv_res, 2, function(x) mean(x, na.rm = TRUE))
     cv_se <- apply(cv_res, 2, function(x) sd(x, na.rm=TRUE)/sqrt(nfold))
     best_model <- search.grid[which.min(cv_mean), ]
-    output <- list(best_parameters = best_model, cv_mean = cv_mean, cv_se = cv_se, cv_grid = search.grid)
+    output <- list(best_parameters = best_model, cv_mean = cv_mean,
+                   cv_se = cv_se, cv_grid = search.grid)
     class(output)<-"cvsNPLS"
     return(output)
 }
@@ -229,7 +240,8 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK 
 #' @return Returns the CV mean squared error
 #' @export
 cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK) {
-  fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ = keepJ, keepK = keepK, silent = TRUE)
+  fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ = keepJ,
+               keepK = keepK, silent = TRUE)
   Y_pred <- predict(fit, xval)
   CVE <- sqrt(mean((Y_pred - yval)^2))
   return(CVE)
@@ -246,6 +258,7 @@ cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK) {
 #' @importFrom graphics abline matplot plot text
 #' @export
 plot.sNPLS <- function(x, type = "T", comps = c(1, 2), ...) {
+  old.mar<- par()$mar
   if (type == "T")
     plot_T(x, comps = comps, ...)
   if (type == "U")
@@ -258,6 +271,7 @@ plot.sNPLS <- function(x, type = "T", comps = c(1, 2), ...) {
     plot_time(x, comps = comps, ...)
   if (type == "variables")
     plot_variables(x, comps = comps, ...)
+  par(mar=old.mar)
 }
 
 #' Internal function for \code{plot.sNPLS}
@@ -267,12 +281,17 @@ plot.sNPLS <- function(x, type = "T", comps = c(1, 2), ...) {
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the T matrix of a sNPLS model fit
 plot_T <- function(x, comps, ...) {
-  plot(x$T[, comps[1]], x$T[, comps[2]], pch = 16, xlab = colnames(x$T)[comps[1]], ylab = colnames(x$T)[comps[2]],
-       ylim=c(min(x$T[, comps[2]])-diff(range(x$T[, comps[2]]))/10, max(x$T[, comps[2]])+diff(range(x$T[, comps[2]]))/10),
-       xlim=c(min(x$T[, comps[1]])-diff(range(x$T[, comps[1]]))/10, max(x$T[, comps[1]])+diff(range(x$T[, comps[1]]))/10), ...)
+  plot(x$T[, comps[1]], x$T[, comps[2]],
+       pch  = 16,
+       xlab = colnames(x$T)[comps[1]],
+       ylab = colnames(x$T)[comps[2]],
+       ylim=c(min(x$T[, comps[2]])-diff(range(x$T[, comps[2]]))/10,
+              max(x$T[, comps[2]])+diff(range(x$T[, comps[2]]))/10),
+       xlim=c(min(x$T[, comps[1]])-diff(range(x$T[, comps[1]]))/10,
+              max(x$T[, comps[1]])+diff(range(x$T[, comps[1]]))/10), ...)
   abline(h = 0, v = 0, lty = 2)
-  text(x$T[, comps[1]], x$T[, comps[2]], labels = rownames(x$T), pos = plotrix::thigmophobe(x$T[,
-                                                                                                comps[1]], x$T[, comps[2]]))
+  text(x$T[, comps[1]], x$T[, comps[2]], labels = rownames(x$T),
+       pos = plotrix::thigmophobe(x$T[, comps[1]], x$T[, comps[2]]))
 }
 
 #' Internal function for \code{plot.sNPLS}
@@ -282,12 +301,16 @@ plot_T <- function(x, comps, ...) {
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the U matrix of a sNPLS model fit
 plot_U <- function(x, comps, ...) {
-  plot(x$U[, comps[1]], x$U[, comps[2]], pch = 16, xlab = colnames(x$U)[comps[1]], ylab = colnames(x$U)[comps[2]],
-       ylim=c(min(x$U[, comps[2]])-diff(range(x$U[, comps[2]]))/10, max(x$U[, comps[2]])+diff(range(x$U[, comps[2]]))/10),
-       xlim=c(min(x$U[, comps[1]])-diff(range(x$U[, comps[1]]))/10, max(x$U[, comps[1]])+diff(range(x$U[, comps[1]]))/10), ...)
+  plot(x$U[, comps[1]], x$U[, comps[2]],
+       pch  = 16,
+       xlab = colnames(x$U)[comps[1]], ylab = colnames(x$U)[comps[2]],
+       ylim = c(min(x$U[, comps[2]])-diff(range(x$U[, comps[2]]))/10,
+                max(x$U[, comps[2]])+diff(range(x$U[, comps[2]]))/10),
+       xlim = c(min(x$U[, comps[1]])-diff(range(x$U[, comps[1]]))/10,
+                max(x$U[, comps[1]])+diff(range(x$U[, comps[1]]))/10), ...)
   abline(h = 0, v = 0, lty = 2)
-  text(x$U[, comps[1]], x$U[, comps[2]], labels = rownames(x$U), pos = plotrix::thigmophobe(x$U[,
-                                                                                                comps[1]], x$U[, comps[2]]))
+  text(x$U[, comps[1]], x$U[, comps[2]], labels = rownames(x$U),
+       pos = plotrix::thigmophobe(x$U[, comps[1]], x$U[, comps[2]]))
 }
 
 #' Internal function for \code{plot.sNPLS}
@@ -297,14 +320,22 @@ plot_U <- function(x, comps, ...) {
 #' @param ... Options passed to \code{plot}
 #' @return A plot of Wj coefficients
 plot_Wj <- function(x, comps, ...) {
-  plot(x$Wj[, comps[1]], x$Wj[, comps[2]], pch = 16, xlab = colnames(x$Wj)[comps[1]], ylab = colnames(x$Wj)[comps[2]],
-       ylim=c(min(x$Wj[, comps[2]])-diff(range(x$Wj[, comps[2]]))/10, max(x$Wj[, comps[2]])+diff(range(x$Wj[, comps[2]]))/10),
-       xlim=c(min(x$Wj[, comps[1]])-diff(range(x$Wj[, comps[1]]))/10, max(x$Wj[, comps[1]])+diff(range(x$Wj[, comps[1]]))/10), ...)
+  plot(x$Wj[, comps[1]], x$Wj[, comps[2]],
+       pch  = 16,
+       xlab = colnames(x$Wj)[comps[1]],
+       ylab = colnames(x$Wj)[comps[2]],
+       ylim = c(min(x$Wj[, comps[2]]) - diff(range(x$Wj[, comps[2]]))/10,
+                max(x$Wj[, comps[2]]) + diff(range(x$Wj[, comps[2]]))/10),
+       xlim = c(min(x$Wj[, comps[1]]) - diff(range(x$Wj[, comps[1]]))/10,
+                max(x$Wj[, comps[1]]) + diff(range(x$Wj[, comps[1]]))/10), ...)
   abline(h = 0, v = 0, lty = 2)
   text(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0],
        x$Wj[, comps[2]][x$Wj[,comps[1]] != 0 | x$Wj[, comps[2]] != 0],
-       pos = tryCatch(plotrix::thigmophobe(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0],
-                                  x$Wj[, comps[2]][x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0]), error=function(x) 1),
+       pos = tryCatch(plotrix::thigmophobe(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 |
+                                                              x$Wj[, comps[2]] != 0],
+                                  x$Wj[, comps[2]][x$Wj[, comps[1]] != 0 |
+                                                     x$Wj[, comps[2]] != 0]),
+                      error=function(x) 1),
        labels = which(x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0))
 }
 
@@ -315,14 +346,22 @@ plot_Wj <- function(x, comps, ...) {
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the Wk coefficients
 plot_Wk <- function(x, comps, ...) {
-  plot(x$Wk[, comps[1]], x$Wk[, comps[2]], pch = 16, xlab = colnames(x$Wk)[comps[1]], ylab = colnames(x$Wk)[comps[2]],
-       ylim=c(min(x$Wk[, comps[2]])-diff(range(x$Wk[, comps[2]]))/10, max(x$Wk[, comps[2]])+diff(range(x$Wk[, comps[2]]))/10),
-       xlim=c(min(x$Wk[, comps[1]])-diff(range(x$Wk[, comps[1]]))/10, max(x$Wk[, comps[1]])+diff(range(x$Wk[, comps[1]]))/10), ...)
+  plot(x$Wk[, comps[1]], x$Wk[, comps[2]],
+       pch  = 16,
+       xlab = colnames(x$Wk)[comps[1]],
+       ylab = colnames(x$Wk)[comps[2]],
+       ylim = c(min(x$Wk[, comps[2]]) - diff(range(x$Wk[, comps[2]]))/10,
+                max(x$Wk[, comps[2]]) + diff(range(x$Wk[, comps[2]]))/10),
+       xlim = c(min(x$Wk[, comps[1]]) - diff(range(x$Wk[, comps[1]]))/10,
+                max(x$Wk[, comps[1]])+diff(range(x$Wk[, comps[1]]))/10), ...)
   abline(h = 0, v = 0, lty = 2)
   text(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0],
        x$Wk[, comps[2]][x$Wk[,comps[1]] != 0 | x$Wk[, comps[2]] != 0],
-       pos = tryCatch(plotrix::thigmophobe(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0],
-                                  x$Wk[, comps[2]][x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0]), error=function(x) 1),
+       pos = tryCatch(plotrix::thigmophobe(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 |
+                                                              x$Wk[, comps[2]] != 0],
+                                  x$Wk[, comps[2]][x$Wk[, comps[1]] != 0 |
+                                                     x$Wk[, comps[2]] != 0]),
+                      error=function(x) 1),
        labels = which(x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0))
 }
 
@@ -333,9 +372,15 @@ plot_Wk <- function(x, comps, ...) {
 #' @param ... Options passed to \code{plot}
 #' @return A plot of Wk coefficients for each component
 #' @importFrom graphics legend
-plot_time <- function(x, comps, ...) {
-  matplot(1:dim(x$Wk[,comps])[1], x$Wk[,comps], type = "l", xlab = "Time", ylab = "Wk", col = 1:5, lty=1:5, ...)
-  legend("topright", colnames(x$Wk)[comps], col=1:5, lty=1:5)
+plot_time <- function(x, comps, xlab="Time", ...) {
+  layout(cbind(1,2), widths = c(5,1))
+  par(mar=c(5.1, 5.1, 4.1, 1))
+  matplot(1:dim(x$Wk[,comps])[1], x$Wk[,comps], type = "l", xlab = xlab,
+          ylab = "Wk", col = 1:5, lty=1:5, ...)
+  par(mar=c(0, 0, 0, 0))
+  plot.new()
+  legend("left", colnames(x$Wk)[comps], col=1:5, lty=1:5, lwd=2)
+  layout(1)
 }
 
 #' Internal function for \code{plot.sNPLS}
@@ -346,8 +391,14 @@ plot_time <- function(x, comps, ...) {
 #' @return A plot of Wj coefficients for each component
 #' @importFrom graphics legend
 plot_variables <- function(x, comps, ...) {
-  matplot(1:dim(x$Wj[,comps])[1], x$Wj[,comps], type = "l", xlab = "Variables", ylab = "Wj", col = 1:5, lty=1:5, ...)
-  legend("topright", colnames(x$Wk)[comps], col=1:5, lty=1:5)
+  layout(cbind(1,2), widths = c(5,1))
+  par(mar=c(5.1, 5.1, 4.1, 1))
+  matplot(1:dim(x$Wj[,comps])[1], x$Wj[,comps], type = "l", xlab = "Variables",
+          ylab = "Wj", col = 1:5, lty=1:5, ...)
+  par(mar=c(0, 0, 0, 0))
+  plot.new()
+  legend("left", colnames(x$Wk)[comps], col=1:5, lty=1:5, lwd=2)
+  layout(1)
 }
 
 #' Predict for sNPLS models
