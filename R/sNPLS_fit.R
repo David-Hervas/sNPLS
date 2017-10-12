@@ -255,7 +255,7 @@ cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK) {
 #' @param type The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the type specified in the \code{type} parameter
-#' @importFrom graphics abline matplot plot text
+#' @importFrom graphics abline matplot plot text layout par plot.new
 #' @export
 plot.sNPLS <- function(x, type = "T", comps = c(1, 2), ...) {
   old.mar<- par()$mar
@@ -369,6 +369,7 @@ plot_Wk <- function(x, comps, ...) {
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector with the components to plot
+#' @param xlab X-axis label
 #' @param ... Options passed to \code{plot}
 #' @return A plot of Wk coefficients for each component
 #' @importFrom graphics legend
