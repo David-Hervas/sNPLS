@@ -278,17 +278,23 @@ plot.sNPLS <- function(x, type = "T", comps = c(1, 2), ...) {
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
+#' @param xlim Limits of the X axis
+#' @param ylim Limits of the Y axis
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the T matrix of a sNPLS model fit
-plot_T <- function(x, comps, ...) {
+plot_T <- function(x,
+                   comps,
+                   xlim = c(min(x$T[, comps[1]])-diff(range(x$T[, comps[1]]))/10,
+                            max(x$T[, comps[1]])+diff(range(x$T[, comps[1]]))/10),
+                   ylim = c(min(x$T[, comps[2]])-diff(range(x$T[, comps[2]]))/10,
+                            max(x$T[, comps[2]])+diff(range(x$T[, comps[2]]))/10),
+                   ...){
   plot(x$T[, comps[1]], x$T[, comps[2]],
        pch  = 16,
        xlab = colnames(x$T)[comps[1]],
        ylab = colnames(x$T)[comps[2]],
-       ylim=c(min(x$T[, comps[2]])-diff(range(x$T[, comps[2]]))/10,
-              max(x$T[, comps[2]])+diff(range(x$T[, comps[2]]))/10),
-       xlim=c(min(x$T[, comps[1]])-diff(range(x$T[, comps[1]]))/10,
-              max(x$T[, comps[1]])+diff(range(x$T[, comps[1]]))/10), ...)
+       ylim = ylim,
+       xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
   text(x$T[, comps[1]], x$T[, comps[2]], labels = rownames(x$T),
        pos = plotrix::thigmophobe(x$T[, comps[1]], x$T[, comps[2]]))
@@ -298,16 +304,22 @@ plot_T <- function(x, comps, ...) {
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
+#' @param xlim Limits of the X axis
+#' @param ylim Limits of the Y axis
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the U matrix of a sNPLS model fit
-plot_U <- function(x, comps, ...) {
+plot_U <- function(x,
+                   comps,
+                   ylim = c(min(x$U[, comps[2]])-diff(range(x$U[, comps[2]]))/10,
+                            max(x$U[, comps[2]])+diff(range(x$U[, comps[2]]))/10),
+                   xlim = c(min(x$U[, comps[1]])-diff(range(x$U[, comps[1]]))/10,
+                            max(x$U[, comps[1]])+diff(range(x$U[, comps[1]]))/10),
+                   ...){
   plot(x$U[, comps[1]], x$U[, comps[2]],
        pch  = 16,
        xlab = colnames(x$U)[comps[1]], ylab = colnames(x$U)[comps[2]],
-       ylim = c(min(x$U[, comps[2]])-diff(range(x$U[, comps[2]]))/10,
-                max(x$U[, comps[2]])+diff(range(x$U[, comps[2]]))/10),
-       xlim = c(min(x$U[, comps[1]])-diff(range(x$U[, comps[1]]))/10,
-                max(x$U[, comps[1]])+diff(range(x$U[, comps[1]]))/10), ...)
+       ylim = ylim,
+       xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
   text(x$U[, comps[1]], x$U[, comps[2]], labels = rownames(x$U),
        pos = plotrix::thigmophobe(x$U[, comps[1]], x$U[, comps[2]]))
@@ -317,17 +329,23 @@ plot_U <- function(x, comps, ...) {
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
+#' @param xlim Limits of the X axis
+#' @param ylim Limits of the Y axis
 #' @param ... Options passed to \code{plot}
 #' @return A plot of Wj coefficients
-plot_Wj <- function(x, comps, ...) {
+plot_Wj <- function(x,
+                    comps,
+                    xlim = c(min(x$Wj[, comps[1]]) - diff(range(x$Wj[, comps[1]]))/10,
+                            max(x$Wj[, comps[1]]) + diff(range(x$Wj[, comps[1]]))/10),
+                    ylim= c(min(x$Wj[, comps[2]]) - diff(range(x$Wj[, comps[2]]))/10,
+                            max(x$Wj[, comps[2]]) + diff(range(x$Wj[, comps[2]]))/10),
+                    ...){
   plot(x$Wj[, comps[1]], x$Wj[, comps[2]],
        pch  = 16,
        xlab = colnames(x$Wj)[comps[1]],
        ylab = colnames(x$Wj)[comps[2]],
-       ylim = c(min(x$Wj[, comps[2]]) - diff(range(x$Wj[, comps[2]]))/10,
-                max(x$Wj[, comps[2]]) + diff(range(x$Wj[, comps[2]]))/10),
-       xlim = c(min(x$Wj[, comps[1]]) - diff(range(x$Wj[, comps[1]]))/10,
-                max(x$Wj[, comps[1]]) + diff(range(x$Wj[, comps[1]]))/10), ...)
+       ylim = ylim,
+       xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
   text(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0],
        x$Wj[, comps[2]][x$Wj[,comps[1]] != 0 | x$Wj[, comps[2]] != 0],
@@ -343,17 +361,23 @@ plot_Wj <- function(x, comps, ...) {
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
+#' @param xlim Limits of the X axis
+#' @param ylim Limits of the Y axis
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the Wk coefficients
-plot_Wk <- function(x, comps, ...) {
+plot_Wk <- function(x,
+                    comps,
+                    xlim = c(min(x$Wk[, comps[1]]) - diff(range(x$Wk[, comps[1]]))/10,
+                                     max(x$Wk[, comps[1]])+diff(range(x$Wk[, comps[1]]))/10),
+                    ylim = c(min(x$Wk[, comps[2]]) - diff(range(x$Wk[, comps[2]]))/10,
+                             max(x$Wk[, comps[2]]) + diff(range(x$Wk[, comps[2]]))/10),
+                    ...){
   plot(x$Wk[, comps[1]], x$Wk[, comps[2]],
        pch  = 16,
        xlab = colnames(x$Wk)[comps[1]],
        ylab = colnames(x$Wk)[comps[2]],
-       ylim = c(min(x$Wk[, comps[2]]) - diff(range(x$Wk[, comps[2]]))/10,
-                max(x$Wk[, comps[2]]) + diff(range(x$Wk[, comps[2]]))/10),
-       xlim = c(min(x$Wk[, comps[1]]) - diff(range(x$Wk[, comps[1]]))/10,
-                max(x$Wk[, comps[1]])+diff(range(x$Wk[, comps[1]]))/10), ...)
+       ylim = ylim,
+       xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
   text(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0],
        x$Wk[, comps[2]][x$Wk[,comps[1]] != 0 | x$Wk[, comps[2]] != 0],
@@ -388,13 +412,14 @@ plot_time <- function(x, comps, xlab="Time", ...) {
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector with the components to plot
+#' @param xlab X-axis label
 #' @param ... Options passed to \code{plot}
 #' @return A plot of Wj coefficients for each component
 #' @importFrom graphics legend
-plot_variables <- function(x, comps, ...) {
+plot_variables <- function(x, comps, xlab="Variables", ...) {
   layout(cbind(1,2), widths = c(5,1))
   par(mar=c(5.1, 5.1, 4.1, 1))
-  matplot(1:dim(x$Wj[,comps])[1], x$Wj[,comps], type = "l", xlab = "Variables",
+  matplot(1:dim(x$Wj[,comps])[1], x$Wj[,comps], type = "l", xlab = xlab,
           ylab = "Wj", col = 1:5, lty=1:5, ...)
   par(mar=c(0, 0, 0, 0))
   plot.new()
