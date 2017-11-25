@@ -88,8 +88,8 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
             uf <- Y %*% qf
             if (sum((uf - u)^2) < conver) {
                 if (!silent) {
-                  print(paste("Component number ", f))
-                  print(paste("Number of iterations: ", it))
+                  cat(paste("Component number ", f, "\n"))
+                  cat(paste("Number of iterations: ", it, "\n"))
                 }
                 it <- max.iteration
                 Tm <- cbind(Tm, tf)
@@ -439,7 +439,8 @@ plot_variables <- function(x, comps, xlab="Variables", ...) {
 predict.sNPLS <- function(object, newX, rescale = TRUE, ...) {
   newX <- unfold3w(newX)
   # Centrado y escalado
-  Xstd <- t((t(newX) - object$Standarization$CenterX)/object$Standarization$ScaleX)
+  #Xstd <- t((t(newX) - object$Standarization$CenterX)/object$Standarization$ScaleX)
+  Xstd <- sweep(sweep(newX, 2, object$Standarization$CenterX), 2, object$Standarization$ScaleX, "/")
   R <- Rmatrix(object)
   Bnpls <- R %*% object$B %*% t(object$Q)
   Yval <- Xstd %*% Bnpls
@@ -447,6 +448,17 @@ predict.sNPLS <- function(object, newX, rescale = TRUE, ...) {
     Yval <- Yval * object$Standarization$ScaleY + object$Standarization$CenterY
   }
   return(Yval)
+}
+
+#' Fitted method for sNPLS models
+#'
+#' @description Fitted method for sNPLS models
+#' @param object A sNPLS model fit
+#' @param ... Further arguments passed to \code{fitted}
+#' @return Fitted values for the sNPLS model
+#' @export
+fitted.sNPLS <- function(object, ...){
+  return(object$Yadj)
 }
 
 #' Plot cross validation results for sNPLS objects
