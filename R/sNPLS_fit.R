@@ -440,7 +440,8 @@ predict.sNPLS <- function(object, newX, rescale = TRUE, ...) {
   newX <- unfold3w(newX)
   # Centrado y escalado
   #Xstd <- t((t(newX) - object$Standarization$CenterX)/object$Standarization$ScaleX)
-  Xstd <- sweep(sweep(newX, 2, object$Standarization$CenterX), 2, object$Standarization$ScaleX, "/")
+  #Xstd <- sweep(sweep(newX, 2, object$Standarization$CenterX), 2, object$Standarization$ScaleX, "/")
+  Xstd <- scale(newX, center=object$Standarization$CenterX, scale=object$Standarization$ScaleX)
   R <- Rmatrix(object)
   Bnpls <- R %*% object$B %*% t(object$Q)
   Yval <- Xstd %*% Bnpls
