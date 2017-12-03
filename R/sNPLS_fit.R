@@ -8,6 +8,10 @@
 #' @param max.iteration Maximum number of iterations
 #' @param keepJ Number of variables to keep for each component
 #' @param keepK Number of 'times' to keep for each component
+#' @param scale.X Perform unit variance scaling on X?
+#' @param center.X Perform mean centering on X?
+#' @param scale.Y Perform unit variance scaling on Y?
+#' @param center.Y Perform mean centering on Y?
 #' @param silent Show output?
 #' @return A fitted sNPLS model
 #' @references C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
@@ -23,7 +27,7 @@
 #' @export
 sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
                   keepJ = rep(ncol(XN), ncomp), keepK = rep(rev(dim(XN))[1], ncomp),
-                  silent = F) {
+                  scale.X=TRUE, center.X=TRUE, scale.Y=TRUE, center.Y=TRUE, silent = F) {
 
     mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
     if (length(dim(XN)) != 3)
@@ -40,7 +44,7 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
     # Matrices initialization
     Tm <- U <- Q <- WsupraJ <- WsupraK <- X <- P <- NULL
     Yorig <- Y
-    Y <- scale(Y)
+    Y <- scale(Y, center = center.Y, scale = scale.Y)
     y_center <- attr(Y, "scaled:center")
     y_scale <- attr(Y, "scaled:scale")
     B <- matrix(0, ncol = ncomp, nrow = ncomp)
@@ -54,7 +58,7 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
       X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
     }
     # Center and scale
-    Xd <- scale(X)
+    Xd <- scale(X, center = center.X, scale = scale.X)
     x_center <- attr(Xd, "scaled:center")
     x_scale <- attr(Xd, "scaled:scale")
 
