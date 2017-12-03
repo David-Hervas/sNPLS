@@ -184,6 +184,7 @@ unfold3w <- function(x) {
 #' @param nfold Number of folds for the cross-validation
 #' @param parallel Should the computations be performed in parallel?
 #' @param free_cores If parallel computations are performed how many cores are left unused
+#' @param ... Further arguments passed to sNPLS
 #' @return A list with the best parameters for the model and the CV error
 #' @examples
 #' \dontrun{
@@ -196,7 +197,7 @@ unfold3w <- function(x) {
 #' }
 #' @export
 cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
-                     keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2) {
+                     keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2, ...) {
     if (parallel & (parallel::detectCores()>1)) {
         cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
         parallel::clusterExport(cl, list(deparse(substitute(X_npls)),
@@ -215,7 +216,7 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
                             yval = Y_npls[x == foldid, , drop = FALSE],
                             ncomp = y["ncomp"],
                             keepJ = rep(y["keepJ"], y["ncomp"]),
-                            keepK = rep(y["keepK"], y["ncomp"])),
+                            keepK = rep(y["keepK"], y["ncomp"]), ...),
                      error=function(x) NA)
           })
     }
@@ -241,11 +242,12 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
 #' @param ncomp Number of components for the sNPLS model
 #' @param keepJ Number of variables to keep for each component
 #' @param keepK Number of 'times' to keep for each component
+#' @param ... Further arguments passed to sNPLS
 #' @return Returns the CV mean squared error
 #' @export
-cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK) {
+cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...) {
   fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ = keepJ,
-               keepK = keepK, silent = TRUE)
+               keepK = keepK, silent = TRUE, ...)
   Y_pred <- predict(fit, xval)
   CVE <- sqrt(mean((Y_pred - yval)^2))
   return(CVE)
@@ -518,7 +520,7 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param nfold Number of folds for the cross-validation
 #' @param parallel Should the computations be performed in parallel?
 #' @param free_cores If parallel computations are performed how many cores are left unused
-#' @param ... Currently not used
+#' @param ... Further arguments passed to cv_snpls
 #' @param times Number of repetitions of the cross-validation
 #' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
 #' @importFrom stats var
@@ -529,10 +531,10 @@ repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK =
     cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
     parallel::clusterExport(cl, list(deparse(substitute(X_npls)), deparse(substitute(Y_npls))))
     parallel::clusterCall(cl, function() require(sNPLS))
-    rep_cv<-parallel::parSapply(cl, 1:times, function(x) cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold))
+    rep_cv<-parallel::parSapply(cl, 1:times, function(x) cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
     parallel::stopCluster(cl)
   } else {
-    rep_cv<-pbapply::pbreplicate(times, cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold))
+    rep_cv<-pbapply::pbreplicate(times, cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
   }
   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), keepJ=sapply(rep_cv[1,], function(x) x[[2]]),
                       keepK=sapply(rep_cv[1,], function(x) x[[3]]))
