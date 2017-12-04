@@ -40,10 +40,11 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
         x3d.names <- dimnames(XN)[[3]] else x3d.names <- paste("Z.", 1:dim(XN)[3], sep = "")
     if (!is.null(colnames(Y)))
         yvar.names <- colnames(Y) else yvar.names <- paste("Y.", 1:dim(Y)[2], sep = "")
-    if(!scale.X) scale.X <- 1
-    if(!scale.Y) scale.Y <- 1
-    if(!center.X) center.X <- 0
-    if(!center.Y) center.Y <- 0
+    if(!center.X) center.X <- rep(0, ncol(X))
+    if(!center.Y) center.Y <- rep(0, ncol(Y))
+    if(!scale.X) scale.X <- rep(1, ncol(X))
+    if(!scale.Y) scale.Y <- rep(1, ncol(Y))
+
     # Matrices initialization
     Tm <- U <- Q <- WsupraJ <- WsupraK <- X <- P <- NULL
     Yorig <- Y
