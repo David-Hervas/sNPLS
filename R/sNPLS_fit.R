@@ -503,11 +503,11 @@ plot.cvsNPLS <- function(x, facets=TRUE, ...) {
 #' @param ... Further arguments passed to \code{coef}
 #' @return A matrix (or vector) of coefficients
 #' @export
-coef.sNPLS <- function(object, as_matrix = FALSE, ...) {
+coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
   R <- Rmatrix(object)
   Bnpls <- R %*% object$B %*% t(object$Q)
   colnames(Bnpls) <- paste("Estimate", colnames(Bnpls))
-  if (as_matrix){
+  if (as.matrix){
     dim(Bnpls) <- c(dim(object$Wj)[1], dim(object$Wk)[1], dim(Bnpls)[2])
     rownames(Bnpls) <- rownames(object$Wj)
     colnames(Bnpls) <- rownames(object$Wk)
