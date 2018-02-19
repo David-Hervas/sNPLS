@@ -30,6 +30,7 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
                   scale.X=TRUE, center.X=TRUE, scale.Y=TRUE, center.Y=TRUE, silent = F) {
 
     mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
+    if (length(dim(Y)) == 3) Y <- unfold3w(Y)
     if (length(dim(XN)) != 3)
         stop("'XN' is not a three-way array")
     if (!is.null(rownames(XN)))
@@ -208,7 +209,8 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
                                          deparse(substitute(Y_npls))))
         parallel::clusterCall(cl, function() require(sNPLS))
     }
-    top <- ceiling(dim(X_npls)[1]/nfold)
+  Y_npls <- unfold3w(Y_npls)
+  top <- ceiling(dim(X_npls)[1]/nfold)
     foldid <- sample(rep(1:nfold, top), dim(X_npls)[1], replace = F)
     search.grid <- expand.grid(list(ncomp = ncomp, keepJ = keepJ, keepK = keepK))
     SqrdE <- numeric()
@@ -501,12 +503,12 @@ plot.cvsNPLS <- function(x, facets=TRUE, ...) {
 #' @param ... Further arguments passed to \code{coef}
 #' @return A matrix (or vector) of coefficients
 #' @export
-coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
+coef.sNPLS <- function(object, as_matrix = FALSE, ...) {
   R <- Rmatrix(object)
   Bnpls <- R %*% object$B %*% t(object$Q)
-  colnames(Bnpls) <- "Estimate"
-  if (as.matrix){
-    dim(Bnpls) <- c(dim(object$Wj)[1], dim(object$Wk)[1])
+  colnames(Bnpls) <- paste("Estimate", colnames(Bnpls))
+  if (as_matrix){
+    dim(Bnpls) <- c(dim(object$Wj)[1], dim(object$Wk)[1], dim(Bnpls)[2])
     rownames(Bnpls) <- rownames(object$Wj)
     colnames(Bnpls) <- rownames(object$Wk)
   }
