@@ -209,7 +209,7 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
                                          deparse(substitute(Y_npls))))
         parallel::clusterCall(cl, function() require(sNPLS))
     }
-  Y_npls <- unfold3w(Y_npls)
+  if(length(dim(Y_npls)) == 3) Y_npls <- unfold3w(Y_npls)
   top <- ceiling(dim(X_npls)[1]/nfold)
     foldid <- sample(rep(1:nfold, top), dim(X_npls)[1], replace = F)
     search.grid <- expand.grid(list(ncomp = ncomp, keepJ = keepJ, keepK = keepK))
