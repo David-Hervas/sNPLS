@@ -265,20 +265,21 @@ cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...) {
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
 #' @param type The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"
+#' @param labels Should rownames be added as labels to the plot?
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the type specified in the \code{type} parameter
 #' @importFrom graphics abline matplot plot text layout par plot.new
 #' @export
-plot.sNPLS <- function(x, type = "T", comps = c(1, 2), ...) {
+plot.sNPLS <- function(x, type = "T", comps = c(1, 2), labels=TRUE, ...) {
   old.mar<- par()$mar
   if (type == "T")
-    plot_T(x, comps = comps, ...)
+    plot_T(x, comps = comps, labels=labels, ...)
   if (type == "U")
-    plot_U(x, comps = comps, ...)
+    plot_U(x, comps = comps, labels=labels, ...)
   if (type == "Wj")
-    plot_Wj(x, comps = comps, ...)
+    plot_Wj(x, comps = comps, labels=labels, ...)
   if (type == "Wk")
-    plot_Wk(x, comps = comps, ...)
+    plot_Wk(x, comps = comps, labels=labels, ...)
   if (type == "time")
     plot_time(x, comps = comps, ...)
   if (type == "variables")
@@ -292,6 +293,7 @@ plot.sNPLS <- function(x, type = "T", comps = c(1, 2), ...) {
 #' @param comps A vector of length two with the components to plot
 #' @param xlim Limits of the X axis
 #' @param ylim Limits of the Y axis
+#' @param labels Should rownames be added as labels to the plot?
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the T matrix of a sNPLS model fit
 plot_T <- function(x,
@@ -300,6 +302,7 @@ plot_T <- function(x,
                             max(x$T[, comps[1]])+diff(range(x$T[, comps[1]]))/10),
                    ylim = c(min(x$T[, comps[2]])-diff(range(x$T[, comps[2]]))/10,
                             max(x$T[, comps[2]])+diff(range(x$T[, comps[2]]))/10),
+                   labels,
                    ...){
   plot(x$T[, comps[1]], x$T[, comps[2]],
        pch  = 16,
@@ -308,7 +311,7 @@ plot_T <- function(x,
        ylim = ylim,
        xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
-  text(x$T[, comps[1]], x$T[, comps[2]], labels = rownames(x$T),
+  if(labels) text(x$T[, comps[1]], x$T[, comps[2]], labels = rownames(x$T),
        pos = plotrix::thigmophobe(x$T[, comps[1]], x$T[, comps[2]]))
 }
 
@@ -318,6 +321,7 @@ plot_T <- function(x,
 #' @param comps A vector of length two with the components to plot
 #' @param xlim Limits of the X axis
 #' @param ylim Limits of the Y axis
+#' @param labels Should rownames be added as labels to the plot?
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the U matrix of a sNPLS model fit
 plot_U <- function(x,
@@ -326,6 +330,7 @@ plot_U <- function(x,
                             max(x$U[, comps[2]])+diff(range(x$U[, comps[2]]))/10),
                    xlim = c(min(x$U[, comps[1]])-diff(range(x$U[, comps[1]]))/10,
                             max(x$U[, comps[1]])+diff(range(x$U[, comps[1]]))/10),
+                   labels,
                    ...){
   plot(x$U[, comps[1]], x$U[, comps[2]],
        pch  = 16,
@@ -333,7 +338,7 @@ plot_U <- function(x,
        ylim = ylim,
        xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
-  text(x$U[, comps[1]], x$U[, comps[2]], labels = rownames(x$U),
+  if(labels) text(x$U[, comps[1]], x$U[, comps[2]], labels = rownames(x$U),
        pos = plotrix::thigmophobe(x$U[, comps[1]], x$U[, comps[2]]))
 }
 
@@ -343,6 +348,7 @@ plot_U <- function(x,
 #' @param comps A vector of length two with the components to plot
 #' @param xlim Limits of the X axis
 #' @param ylim Limits of the Y axis
+#' @param labels Should rownames be added as labels to the plot?
 #' @param ... Options passed to \code{plot}
 #' @return A plot of Wj coefficients
 plot_Wj <- function(x,
@@ -351,6 +357,7 @@ plot_Wj <- function(x,
                             max(x$Wj[, comps[1]]) + diff(range(x$Wj[, comps[1]]))/10),
                     ylim= c(min(x$Wj[, comps[2]]) - diff(range(x$Wj[, comps[2]]))/10,
                             max(x$Wj[, comps[2]]) + diff(range(x$Wj[, comps[2]]))/10),
+                    labels,
                     ...){
   plot(x$Wj[, comps[1]], x$Wj[, comps[2]],
        pch  = 16,
@@ -359,7 +366,7 @@ plot_Wj <- function(x,
        ylim = ylim,
        xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
-  text(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0],
+  if(labels) text(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0],
        x$Wj[, comps[2]][x$Wj[,comps[1]] != 0 | x$Wj[, comps[2]] != 0],
        pos = tryCatch(plotrix::thigmophobe(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 |
                                                               x$Wj[, comps[2]] != 0],
@@ -375,6 +382,7 @@ plot_Wj <- function(x,
 #' @param comps A vector of length two with the components to plot
 #' @param xlim Limits of the X axis
 #' @param ylim Limits of the Y axis
+#' @param labels Should rownames be added as labels to the plot?
 #' @param ... Options passed to \code{plot}
 #' @return A plot of the Wk coefficients
 plot_Wk <- function(x,
@@ -383,6 +391,7 @@ plot_Wk <- function(x,
                                      max(x$Wk[, comps[1]])+diff(range(x$Wk[, comps[1]]))/10),
                     ylim = c(min(x$Wk[, comps[2]]) - diff(range(x$Wk[, comps[2]]))/10,
                              max(x$Wk[, comps[2]]) + diff(range(x$Wk[, comps[2]]))/10),
+                    labels,
                     ...){
   plot(x$Wk[, comps[1]], x$Wk[, comps[2]],
        pch  = 16,
@@ -391,7 +400,7 @@ plot_Wk <- function(x,
        ylim = ylim,
        xlim = xlim, ...)
   abline(h = 0, v = 0, lty = 2)
-  text(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0],
+  if(labels) text(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0],
        x$Wk[, comps[2]][x$Wk[,comps[1]] != 0 | x$Wk[, comps[2]] != 0],
        pos = tryCatch(plotrix::thigmophobe(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 |
                                                               x$Wk[, comps[2]] != 0],
@@ -414,6 +423,7 @@ plot_time <- function(x, comps, xlab="Time", ...) {
   par(mar=c(5.1, 5.1, 4.1, 1))
   matplot(1:dim(x$Wk[,comps])[1], x$Wk[,comps], type = "l", xlab = xlab,
           ylab = "Wk", col = 1:5, lty=1:5, ...)
+  abline(h=0, lty=2)
   par(mar=c(0, 0, 0, 0))
   plot.new()
   legend("left", colnames(x$Wk)[comps], col=1:5, lty=1:5, lwd=2)
@@ -433,6 +443,7 @@ plot_variables <- function(x, comps, xlab="Variables", ...) {
   par(mar=c(5.1, 5.1, 4.1, 1))
   matplot(1:dim(x$Wj[,comps])[1], x$Wj[,comps], type = "l", xlab = xlab,
           ylab = "Wj", col = 1:5, lty=1:5, ...)
+  abline(h=0, lty=2)
   par(mar=c(0, 0, 0, 0))
   plot.new()
   legend("left", colnames(x$Wk)[comps], col=1:5, lty=1:5, lwd=2)

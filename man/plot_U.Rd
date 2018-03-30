@@ -7,7 +7,7 @@
 plot_U(x, comps, ylim = c(min(x$U[, comps[2]]) - diff(range(x$U[,
   comps[2]]))/10, max(x$U[, comps[2]]) + diff(range(x$U[, comps[2]]))/10),
   xlim = c(min(x$U[, comps[1]]) - diff(range(x$U[, comps[1]]))/10, max(x$U[,
-  comps[1]]) + diff(range(x$U[, comps[1]]))/10), ...)
+  comps[1]]) + diff(range(x$U[, comps[1]]))/10), labels, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}
@@ -17,6 +17,8 @@ plot_U(x, comps, ylim = c(min(x$U[, comps[2]]) - diff(range(x$U[,
 \item{ylim}{Limits of the Y axis}
 
 \item{xlim}{Limits of the X axis}
+
+\item{labels}{Should rownames be added as labels to the plot?}
 
 \item{...}{Options passed to \code{plot}}
 }

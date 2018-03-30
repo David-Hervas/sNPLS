@@ -7,7 +7,7 @@
 plot_Wk(x, comps, xlim = c(min(x$Wk[, comps[1]]) - diff(range(x$Wk[,
   comps[1]]))/10, max(x$Wk[, comps[1]]) + diff(range(x$Wk[, comps[1]]))/10),
   ylim = c(min(x$Wk[, comps[2]]) - diff(range(x$Wk[, comps[2]]))/10,
-  max(x$Wk[, comps[2]]) + diff(range(x$Wk[, comps[2]]))/10), ...)
+  max(x$Wk[, comps[2]]) + diff(range(x$Wk[, comps[2]]))/10), labels, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}
@@ -17,6 +17,8 @@ plot_Wk(x, comps, xlim = c(min(x$Wk[, comps[1]]) - diff(range(x$Wk[,
 \item{xlim}{Limits of the X axis}
 
 \item{ylim}{Limits of the Y axis}
+
+\item{labels}{Should rownames be added as labels to the plot?}
 
 \item{...}{Options passed to \code{plot}}
 }

@@ -4,7 +4,7 @@
 \alias{plot.sNPLS}
 \title{Plots for sNPLS model fits}
 \usage{
-\method{plot}{sNPLS}(x, type = "T", comps = c(1, 2), ...)
+\method{plot}{sNPLS}(x, type = "T", comps = c(1, 2), labels = TRUE, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}
@@ -12,6 +12,8 @@
 \item{type}{The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"}
 
 \item{comps}{A vector of length two with the components to plot}
+
+\item{labels}{Should rownames be added as labels to the plot?}
 
 \item{...}{Options passed to \code{plot}}
 }
