@@ -6,8 +6,8 @@
 \usage{
 plot_U(x, comps, ylim = c(min(x$U[, comps[2]]) - diff(range(x$U[,
   comps[2]]))/10, max(x$U[, comps[2]]) + diff(range(x$U[, comps[2]]))/10),
-  xlim = c(min(x$U[, comps[1]]) - diff(range(x$U[, comps[1]]))/10, max(x$U[,
-  comps[1]]) + diff(range(x$U[, comps[1]]))/10), labels, ...)
+  xlim = c(min(x$U[, comps[1]]) - diff(range(x$U[, comps[1]]))/10,
+  max(x$U[, comps[1]]) + diff(range(x$U[, comps[1]]))/10), labels, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}

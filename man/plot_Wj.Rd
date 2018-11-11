@@ -5,9 +5,10 @@
 \title{Internal function for \code{plot.sNPLS}}
 \usage{
 plot_Wj(x, comps, xlim = c(min(x$Wj[, comps[1]]) - diff(range(x$Wj[,
-  comps[1]]))/10, max(x$Wj[, comps[1]]) + diff(range(x$Wj[, comps[1]]))/10),
-  ylim = c(min(x$Wj[, comps[2]]) - diff(range(x$Wj[, comps[2]]))/10,
-  max(x$Wj[, comps[2]]) + diff(range(x$Wj[, comps[2]]))/10), labels, ...)
+  comps[1]]))/10, max(x$Wj[, comps[1]]) + diff(range(x$Wj[,
+  comps[1]]))/10), ylim = c(min(x$Wj[, comps[2]]) - diff(range(x$Wj[,
+  comps[2]]))/10, max(x$Wj[, comps[2]]) + diff(range(x$Wj[,
+  comps[2]]))/10), labels, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}

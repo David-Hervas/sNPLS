@@ -623,3 +623,30 @@ summary.sNPLS <- function(object, ...){
   cat("Coefficients: \n")
   round(coef(object, as.matrix=TRUE),3)
 }
+
+#' Compute Selectivity Ratio for a sNPLS model
+#'
+#' @description Estimates Selectivity Ratio for the different components of a sNPLS model fit
+#' @param model A sNPLS model
+#' @return A list of data.frames, each of them including the computed Selectivity Ratios for each variable
+#' @export
+SR <- function(model){
+  output <- lapply(1:model$ncomp, function(f){
+    Xres <- model$Xd - model$T[,1:f, drop=FALSE] %*% t(model$P[[f]])
+    Xpred <- model$T[,1:f, drop=FALSE] %*% t(model$P[[f]])
+    SSexp <- Xpred^2
+    SSres <- (model$Xd-Xpred)^2
+    SSexp_cube <- array(SSexp, dim=c(nrow(SSexp), nrow(model$Wj), nrow(model$Wk)))
+    SSres_cube <- array(SSres, dim=c(nrow(SSexp), nrow(model$Wj), nrow(model$Wk)))
+    SR_k <- sapply(1:nrow(model$Wk), function(x) sum(SSexp_cube[,,x])/sum(SSres_cube[,,x]))
+    SR_j <- sapply(1:nrow(model$Wj), function(x) sum(SSexp_cube[,x,])/sum(SSres_cube[,x,]))
+    list(SR_k=round(SR_k,3),
+         SR_j=round(SR_j,3))
+  })
+  SR_j <- do.call("cbind", sapply(output, function(x) x[2]))
+  SR_k <- do.call("cbind", sapply(output, function(x) x[1]))
+  rownames(SR_j) <- rownames(model$Wj)
+  rownames(SR_k) <- rownames(model$Wk)
+  colnames(SR_j) <- colnames(SR_k) <- paste("Component ", 1:model$ncomp, sep="")
+  list(SR_j=SR_j, SR_k=SR_k)
+}

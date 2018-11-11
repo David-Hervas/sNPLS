@@ -6,8 +6,8 @@
 \usage{
 plot_T(x, comps, xlim = c(min(x$T[, comps[1]]) - diff(range(x$T[,
   comps[1]]))/10, max(x$T[, comps[1]]) + diff(range(x$T[, comps[1]]))/10),
-  ylim = c(min(x$T[, comps[2]]) - diff(range(x$T[, comps[2]]))/10, max(x$T[,
-  comps[2]]) + diff(range(x$T[, comps[2]]))/10), labels, ...)
+  ylim = c(min(x$T[, comps[2]]) - diff(range(x$T[, comps[2]]))/10,
+  max(x$T[, comps[2]]) + diff(range(x$T[, comps[2]]))/10), labels, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}
