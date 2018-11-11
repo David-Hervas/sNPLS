@@ -133,7 +133,7 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
     colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
       colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
     output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
-                   Gu = Gu, ncomp = ncomp, Yadj = Yadj, SqrdE = SqrdE,
+                   Gu = Gu, ncomp = ncomp, Xd=Xd, Yadj = Yadj, SqrdE = SqrdE,
                    Standarization = list(ScaleX = x_scale, CenterX = x_center,
                                          ScaleY = y_scale, CenterY = y_center))
     class(output)<-"sNPLS"
