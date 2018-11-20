@@ -5,8 +5,8 @@
 \title{Cross-validation for a sNPLS model}
 \usage{
 cv_snpls(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
-  keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE,
-  free_cores = 2, ...)
+  keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2,
+  ...)
 }
 \arguments{
 \item{X_npls}{A three-way array containing the predictors.}

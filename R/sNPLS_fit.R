@@ -266,188 +266,143 @@ cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...) {
 #' @param comps A vector of length two with the components to plot
 #' @param type The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"
 #' @param labels Should rownames be added as labels to the plot?
-#' @param ... Options passed to \code{plot}
+#' @param group Vector with categorical variable defining groups
+#' @param ... Not used
 #' @return A plot of the type specified in the \code{type} parameter
 #' @importFrom graphics abline matplot plot text layout par plot.new
 #' @export
-plot.sNPLS <- function(x, type = "T", comps = c(1, 2), labels=TRUE, ...) {
-  old.mar<- par()$mar
+plot.sNPLS <- function(x, type = "T", comps = c(1, 2), labels=TRUE, group=NULL, ...) {
   if (type == "T")
-    plot_T(x, comps = comps, labels=labels, ...)
+    p<-plot_T(x, comps = comps, labels=labels, group=group)
   if (type == "U")
-    plot_U(x, comps = comps, labels=labels, ...)
+    p<-plot_U(x, comps = comps, labels=labels, group=group)
   if (type == "Wj")
-    plot_Wj(x, comps = comps, labels=labels, ...)
+    p<-plot_Wj(x, comps = comps, labels=labels)
   if (type == "Wk")
-    plot_Wk(x, comps = comps, labels=labels, ...)
+    p<-plot_Wk(x, comps = comps, labels=labels)
   if (type == "time")
-    plot_time(x, comps = comps, ...)
+    p<-plot_time(x, comps = comps)
   if (type == "variables")
-    plot_variables(x, comps = comps, ...)
-  par(mar=old.mar)
+    p<-plot_variables(x, comps = comps)
+  p
 }
 
 #' Internal function for \code{plot.sNPLS}
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
-#' @param xlim Limits of the X axis
-#' @param ylim Limits of the Y axis
 #' @param labels Should rownames be added as labels to the plot?
-#' @param ... Options passed to \code{plot}
+#' @param group Vector with categorical variable defining groups
 #' @return A plot of the T matrix of a sNPLS model fit
-plot_T <- function(x,
-                   comps,
-                   xlim = c(min(x$T[, comps[1]])-diff(range(x$T[, comps[1]]))/10,
-                            max(x$T[, comps[1]])+diff(range(x$T[, comps[1]]))/10),
-                   ylim = c(min(x$T[, comps[2]])-diff(range(x$T[, comps[2]]))/10,
-                            max(x$T[, comps[2]])+diff(range(x$T[, comps[2]]))/10),
-                   labels,
-                   ...){
-  plot(x$T[, comps[1]], x$T[, comps[2]],
-       pch  = 16,
-       xlab = colnames(x$T)[comps[1]],
-       ylab = colnames(x$T)[comps[2]],
-       ylim = ylim,
-       xlim = xlim, ...)
-  abline(h = 0, v = 0, lty = 2)
-  if(labels) text(x$T[, comps[1]], x$T[, comps[2]], labels = rownames(x$T),
-       pos = plotrix::thigmophobe(x$T[, comps[1]], x$T[, comps[2]]))
+plot_T <- function(x, comps, labels, group=NULL){
+  df <- data.frame(x$T)[comps]
+  if(!is.null(group)) df <- data.frame(df, group=as.factor(group))
+  names(df)[1:2] <- paste("Comp.", comps, sep="")
+  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+    ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
+                                                                      lty=2) +
+    ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
+    ggplot2::ylab(names(df)[2]) + ggplot2::theme(axis.text=ggplot2::element_text(size=12),
+                                                 axis.title=ggplot2::element_text(size=12,face="bold"))
+  if(labels) p1 <- p1 + ggrepel::geom_text_repel(ggplot2::aes(label=rownames(df)))
+  if(!is.null(group)) p1 <- p1 + ggplot2::geom_point(ggplot2::aes(color=group))
+  p1
 }
 
 #' Internal function for \code{plot.sNPLS}
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
-#' @param xlim Limits of the X axis
-#' @param ylim Limits of the Y axis
 #' @param labels Should rownames be added as labels to the plot?
-#' @param ... Options passed to \code{plot}
+#' @param group Vector with categorical variable defining groups
 #' @return A plot of the U matrix of a sNPLS model fit
-plot_U <- function(x,
-                   comps,
-                   ylim = c(min(x$U[, comps[2]])-diff(range(x$U[, comps[2]]))/10,
-                            max(x$U[, comps[2]])+diff(range(x$U[, comps[2]]))/10),
-                   xlim = c(min(x$U[, comps[1]])-diff(range(x$U[, comps[1]]))/10,
-                            max(x$U[, comps[1]])+diff(range(x$U[, comps[1]]))/10),
-                   labels,
-                   ...){
-  plot(x$U[, comps[1]], x$U[, comps[2]],
-       pch  = 16,
-       xlab = colnames(x$U)[comps[1]], ylab = colnames(x$U)[comps[2]],
-       ylim = ylim,
-       xlim = xlim, ...)
-  abline(h = 0, v = 0, lty = 2)
-  if(labels) text(x$U[, comps[1]], x$U[, comps[2]], labels = rownames(x$U),
-       pos = plotrix::thigmophobe(x$U[, comps[1]], x$U[, comps[2]]))
+plot_U <- function(x, comps, labels, group=NULL){
+  df <- data.frame(x$U)[comps]
+  if(!is.null(group)) df <- data.frame(df, group=as.factor(group))
+  names(df)[1:2] <- paste("Comp.", comps, sep="")
+  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+    ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
+                                                                      lty=2) +
+    ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
+    ggplot2::ylab(names(df)[2]) + ggplot2::theme(axis.text=ggplot2::element_text(size=12),
+                                                 axis.title=ggplot2::element_text(size=12,face="bold"))
+  if(labels) p1 <- p1 + ggrepel::geom_text_repel(ggplot2::aes(label=rownames(df)))
+  if(!is.null(group)) p1 <- p1 + ggplot2::geom_point(ggplot2::aes(color=group))
+  p1
 }
 
 #' Internal function for \code{plot.sNPLS}
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
-#' @param xlim Limits of the X axis
-#' @param ylim Limits of the Y axis
 #' @param labels Should rownames be added as labels to the plot?
-#' @param ... Options passed to \code{plot}
 #' @return A plot of Wj coefficients
-plot_Wj <- function(x,
-                    comps,
-                    xlim = c(min(x$Wj[, comps[1]]) - diff(range(x$Wj[, comps[1]]))/10,
-                            max(x$Wj[, comps[1]]) + diff(range(x$Wj[, comps[1]]))/10),
-                    ylim= c(min(x$Wj[, comps[2]]) - diff(range(x$Wj[, comps[2]]))/10,
-                            max(x$Wj[, comps[2]]) + diff(range(x$Wj[, comps[2]]))/10),
-                    labels,
-                    ...){
-  plot(x$Wj[, comps[1]], x$Wj[, comps[2]],
-       pch  = 16,
-       xlab = colnames(x$Wj)[comps[1]],
-       ylab = colnames(x$Wj)[comps[2]],
-       ylim = ylim,
-       xlim = xlim, ...)
-  abline(h = 0, v = 0, lty = 2)
-  if(labels) text(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0],
-       x$Wj[, comps[2]][x$Wj[,comps[1]] != 0 | x$Wj[, comps[2]] != 0],
-       pos = tryCatch(plotrix::thigmophobe(x$Wj[, comps[1]][x$Wj[, comps[1]] != 0 |
-                                                              x$Wj[, comps[2]] != 0],
-                                  x$Wj[, comps[2]][x$Wj[, comps[1]] != 0 |
-                                                     x$Wj[, comps[2]] != 0]),
-                      error=function(x) 1),
-       labels = which(x$Wj[, comps[1]] != 0 | x$Wj[, comps[2]] != 0))
+plot_Wj <- function(x, comps, labels){
+  df <- data.frame(x$Wj)[comps]
+  names(df) <- paste("Comp.", comps, sep="")
+  var_names_zero <- rownames(df)
+  var_names_zero[rowSums(df)==0]<- ""
+  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+    ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
+                                                                      lty=2) +
+    ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
+    ggplot2::ylab(names(df)[2]) + ggplot2::theme(axis.text=ggplot2::element_text(size=12),
+                                                 axis.title=ggplot2::element_text(size=12,face="bold"))
+  if(labels) p1 <- p1 + ggrepel::geom_text_repel(ggplot2::aes(label=var_names_zero), size=3)
+  p1
 }
 
 #' Internal function for \code{plot.sNPLS}
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector of length two with the components to plot
-#' @param xlim Limits of the X axis
-#' @param ylim Limits of the Y axis
 #' @param labels Should rownames be added as labels to the plot?
-#' @param ... Options passed to \code{plot}
 #' @return A plot of the Wk coefficients
-plot_Wk <- function(x,
-                    comps,
-                    xlim = c(min(x$Wk[, comps[1]]) - diff(range(x$Wk[, comps[1]]))/10,
-                                     max(x$Wk[, comps[1]])+diff(range(x$Wk[, comps[1]]))/10),
-                    ylim = c(min(x$Wk[, comps[2]]) - diff(range(x$Wk[, comps[2]]))/10,
-                             max(x$Wk[, comps[2]]) + diff(range(x$Wk[, comps[2]]))/10),
-                    labels,
-                    ...){
-  plot(x$Wk[, comps[1]], x$Wk[, comps[2]],
-       pch  = 16,
-       xlab = colnames(x$Wk)[comps[1]],
-       ylab = colnames(x$Wk)[comps[2]],
-       ylim = ylim,
-       xlim = xlim, ...)
-  abline(h = 0, v = 0, lty = 2)
-  if(labels) text(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0],
-       x$Wk[, comps[2]][x$Wk[,comps[1]] != 0 | x$Wk[, comps[2]] != 0],
-       pos = tryCatch(plotrix::thigmophobe(x$Wk[, comps[1]][x$Wk[, comps[1]] != 0 |
-                                                              x$Wk[, comps[2]] != 0],
-                                  x$Wk[, comps[2]][x$Wk[, comps[1]] != 0 |
-                                                     x$Wk[, comps[2]] != 0]),
-                      error=function(x) 1),
-       labels = which(x$Wk[, comps[1]] != 0 | x$Wk[, comps[2]] != 0))
+plot_Wk <- function(x, comps, labels){
+  df <- data.frame(x$Wk)[comps]
+  names(df) <- paste("Comp.", comps, sep="")
+  var_names_zero <- rownames(df)
+  var_names_zero[rowSums(df)==0]<- ""
+  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+    ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
+                                                                      lty=2) +
+    ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
+    ggplot2::ylab(names(df)[2]) + ggplot2::theme(axis.text=ggplot2::element_text(size=12),
+                                                 axis.title=ggplot2::element_text(size=12,face="bold"))
+  if(labels) p1 <- p1 + ggrepel::geom_text_repel(ggplot2::aes(label=var_names_zero), size=4)
+  p1
 }
 
 #' Internal function for \code{plot.sNPLS}
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector with the components to plot
-#' @param xlab X-axis label
-#' @param ... Options passed to \code{plot}
 #' @return A plot of Wk coefficients for each component
-#' @importFrom graphics legend
-plot_time <- function(x, comps, xlab="Time", ...) {
-  layout(cbind(1,2), widths = c(5,1))
-  par(mar=c(5.1, 5.1, 4.1, 1))
-  matplot(1:dim(x$Wk[,comps])[1], x$Wk[,comps], type = "l", xlab = xlab,
-          ylab = "Wk", col = 1:5, lty=1:5, ...)
-  abline(h=0, lty=2)
-  par(mar=c(0, 0, 0, 0))
-  plot.new()
-  legend("left", colnames(x$Wk)[comps], col=1:5, lty=1:5, lwd=2)
-  layout(1)
+plot_time <- function(x, comps){
+  df <- clickR::forge(data.frame(row=1:nrow(x$Wk), x$Wk), affixes=as.character(comps),
+                      var.name="Component")
+  ggplot2::ggplot(df, ggplot2::aes_string(x="row", y="Comp..", color="Component")) +
+    ggplot2::geom_line(lwd=1.05) + ggplot2::theme_bw() +
+    ggplot2::geom_hline(yintercept = 0, alpha=0.2) +
+    ggplot2::xlab("Time (index)") + ggplot2::ylab("Wk") +
+    ggplot2::theme(axis.text = ggplot2::element_text(size=12),
+                   axis.title = ggplot2::element_text(size=12,face="bold"))
 }
 
 #' Internal function for \code{plot.sNPLS}
 #'
 #' @param x A sNPLS model fit
 #' @param comps A vector with the components to plot
-#' @param xlab X-axis label
-#' @param ... Options passed to \code{plot}
 #' @return A plot of Wj coefficients for each component
-#' @importFrom graphics legend
-plot_variables <- function(x, comps, xlab="Variables", ...) {
-  layout(cbind(1,2), widths = c(5,1))
-  par(mar=c(5.1, 5.1, 4.1, 1))
-  matplot(1:dim(x$Wj[,comps])[1], x$Wj[,comps], type = "l", xlab = xlab,
-          ylab = "Wj", col = 1:5, lty=1:5, ...)
-  abline(h=0, lty=2)
-  par(mar=c(0, 0, 0, 0))
-  plot.new()
-  legend("left", colnames(x$Wk)[comps], col=1:5, lty=1:5, lwd=2)
-  layout(1)
+plot_variables <- function(x, comps){
+  df <- clickR::forge(data.frame(row=1:nrow(x$Wj), x$Wj), affixes=as.character(comps),
+                      var.name="Component")
+  ggplot2::ggplot(df, ggplot2::aes_string(x="row", y="Comp..", color="Component")) +
+    ggplot2::geom_line(lwd=1.05) + ggplot2::theme_bw() +
+    ggplot2::geom_hline(yintercept = 0, alpha=0.2) +
+    ggplot2::xlab("Variable (index)") + ggplot2::ylab("Wj") +
+    ggplot2::theme(axis.text = ggplot2::element_text(size=12),
+                   axis.title=ggplot2::element_text(size=12,face="bold"))
 }
 
 #' Predict for sNPLS models

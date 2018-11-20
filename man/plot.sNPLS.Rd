@@ -5,7 +5,7 @@
 \title{Plots for sNPLS model fits}
 \usage{
 \method{plot}{sNPLS}(x, type = "T", comps = c(1, 2), labels = TRUE,
-  ...)
+  group = NULL, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}
@@ -16,7 +16,9 @@
 
 \item{labels}{Should rownames be added as labels to the plot?}
 
-\item{...}{Options passed to \code{plot}}
+\item{group}{Vector with categorical variable defining groups}
+
+\item{...}{Not used}
 }
 \value{
 A plot of the type specified in the \code{type} parameter
