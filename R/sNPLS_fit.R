@@ -4,14 +4,16 @@
 #' @param XN A three-way array containing the predictors.
 #' @param Y A matrix containing the response.
 #' @param ncomp Number of components in the projection
-#' @param conver Convergence criterion
-#' @param max.iteration Maximum number of iterations
-#' @param keepJ Number of variables to keep for each component
-#' @param keepK Number of 'times' to keep for each component
+#' @param threshold_j Threshold value for the L1 penalty on Wj (scaled between 0-1)
+#' @param threshold_k Threshold value for the L1 penalty on Wk (scaled between 0-1)
+#' @param keepJ Number of variables to keep for each component, ignored if threshold_j is provided
+#' @param keepK Number of 'times' to keep for each component, ignored if threshold_k is provided
 #' @param scale.X Perform unit variance scaling on X?
 #' @param center.X Perform mean centering on X?
 #' @param scale.Y Perform unit variance scaling on Y?
 #' @param center.Y Perform mean centering on Y?
+#' @param conver Convergence criterion
+#' @param max.iteration Maximum number of iterations
 #' @param silent Show output?
 #' @return A fitted sNPLS model
 #' @references C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
@@ -25,11 +27,29 @@
 #' fit<-sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
 #' @importFrom stats predict sd
 #' @export
-sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
-                  keepJ = rep(ncol(XN), ncomp), keepK = rep(rev(dim(XN))[1], ncomp),
-                  scale.X=TRUE, center.X=TRUE, scale.Y=TRUE, center.Y=TRUE, silent = F) {
+sNPLS <- function(XN, Y, ncomp = 2, threshold_j = 0, threshold_k = 0,
+                  keepJ = NULL, keepK = NULL,
+                  scale.X=TRUE, center.X=TRUE, scale.Y=TRUE, center.Y=TRUE,
+                  conver = 1e-16, max.iteration = 10000, silent = F){
 
     mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
+    thresholding <- function(x, nj) {
+      ifelse(abs(x) > abs(x[order(abs(x))][nj]),
+             (abs(x) - abs(x[order(abs(x))][nj])) *
+               sign(x), 0)
+    }
+    rel_thresholding <- function(x, j_rel){
+      ifelse(abs(x)-max(abs(x))*j_rel <= 0, 0, sign(x)*(abs(x)-max(abs(x))*j_rel))
+    }
+    if(is.null(keepJ) | is.null(keepK)){
+      cont_thresholding <- TRUE
+      message("Using continuous thresholding")
+    } else {
+      cont_thresholding <- FALSE
+      message("Using discrete thresholding")
+    }
+    if(length(threshold_j) == 1 & ncomp > 1) threshold_j <- rep(threshold_j, ncomp)
+    if(length(threshold_k) == 1 & ncomp > 1) threshold_k <- rep(threshold_k, ncomp)
     if (length(dim(Y)) == 3) Y <- unfold3w(Y)
     if (length(dim(XN)) != 3)
         stop("'XN' is not a three-way array")
@@ -69,8 +89,10 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
 
     # Main loop for each component
     for (f in 1:ncomp) {
-        nj <- ncol(XN) - keepJ[f]
-        nk <- dim(XN)[3] - keepK[f]
+        if(!cont_thresholding){
+          nj <- ncol(XN) - keepJ[f]
+          nk <- dim(XN)[3] - keepK[f]
+        }
         it = 1
         while (it < max.iteration) {
             Zrow <- crossprod(u, Xd)
@@ -78,18 +100,22 @@ sNPLS <- function(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
             svd.z <- svd(Z)
             wsupraj <- svd.z$u[, 1]
             # L1 penalization for wsupraj
-            if (nj != 0) {
-                wsupraj <- ifelse(abs(wsupraj) > abs(wsupraj[order(abs(wsupraj))][nj]),
-                                  (abs(wsupraj) - abs(wsupraj[order(abs(wsupraj))][nj])) *
-                                    sign(wsupraj), 0)
+            if(cont_thresholding){
+              wsupraj <- rel_thresholding(wsupraj, threshold_j[f])
+            } else {
+              if (nj != 0) {
+                wsupraj <- thresholding(wsupraj, nj)
+              }
             }
             ##########
             wsuprak <- svd.z$v[, 1]
             # L1 penalization for wsuprak
-            if (nk != 0) {
-                wsuprak <- ifelse(abs(wsuprak) > abs(wsuprak[order(abs(wsuprak))][nk]),
-                                  (abs(wsuprak) - abs(wsuprak[order(abs(wsuprak))][nk])) *
-                                    sign(wsuprak), 0)
+            if(cont_thresholding){
+              wsuprak <- rel_thresholding(wsuprak, threshold_k[f])
+            } else {
+              if (nk != 0) {
+                wsuprak <- thresholding(wsuprak, nk)
+              }
             }
             ##########
             tf <- Xd %*% kronecker(wsuprak, wsupraj)
@@ -184,11 +210,11 @@ unfold3w <- function(x) {
 #' @param X_npls A three-way array containing the predictors.
 #' @param Y_npls A matrix containing the response.
 #' @param ncomp A vector with the different number of components to test
-#' @param keepJ A vector with the different number of selected variables to test
-#' @param keepK A vector with the different number of selected 'times' to test
+#' @param samples Number of samples for performing random search in continuous thresholding
+#' @param keepJ A vector with the different number of selected variables to test for discrete thresholding
+#' @param keepK A vector with the different number of selected 'times' to test for discrete thresholding
 #' @param nfold Number of folds for the cross-validation
 #' @param parallel Should the computations be performed in parallel?
-#' @param free_cores If parallel computations are performed how many cores are left unused
 #' @param ... Further arguments passed to sNPLS
 #' @return A list with the best parameters for the model and the CV error
 #' @examples
@@ -201,43 +227,92 @@ unfold3w <- function(x) {
 #' cv1<- cv_snpls(X_npls, Y_npls, ncomp=1:2, keepJ = 1:3, keepK = 1:2, parallel = FALSE)
 #' }
 #' @export
-cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
-                     keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2, ...) {
-    if (parallel & (parallel::detectCores()>1)) {
-        cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
-        parallel::clusterExport(cl, list(deparse(substitute(X_npls)),
-                                         deparse(substitute(Y_npls))))
-        parallel::clusterCall(cl, function() require(sNPLS))
-    }
+cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
+                     keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  ...) {
+
   if(length(dim(Y_npls)) == 3) Y_npls <- unfold3w(Y_npls)
   top <- ceiling(dim(X_npls)[1]/nfold)
-    foldid <- sample(rep(1:nfold, top), dim(X_npls)[1], replace = F)
-    search.grid <- expand.grid(list(ncomp = ncomp, keepJ = keepJ, keepK = keepK))
-    SqrdE <- numeric()
-    applied_fun <- function(y) {
-        sapply(1:nfold, function(x) {
-            tryCatch(cv_fit(xtrain = X_npls[x != foldid, , ],
-                            ytrain = Y_npls[x != foldid, , drop = FALSE],
-                            xval = X_npls[x == foldid, , ],
-                            yval = Y_npls[x == foldid, , drop = FALSE],
-                            ncomp = y["ncomp"],
-                            keepJ = rep(y["keepJ"], y["ncomp"]),
-                            keepK = rep(y["keepK"], y["ncomp"]), ...),
-                     error=function(x) NA)
-          })
-    }
-    if (parallel) {
-        cv_res <- parallel::parApply(cl, search.grid, 1, applied_fun)
-        parallel::stopCluster(cl)
-    } else cv_res <- pbapply::pbapply(search.grid, 1, applied_fun)
-    cv_mean <- apply(cv_res, 2, function(x) mean(x, na.rm = TRUE))
-    cv_se <- apply(cv_res, 2, function(x) sd(x, na.rm=TRUE)/sqrt(nfold))
-    best_model <- search.grid[which.min(cv_mean), ]
-    output <- list(best_parameters = best_model, cv_mean = cv_mean,
-                   cv_se = cv_se, cv_grid = search.grid)
-    class(output)<-"cvsNPLS"
-    return(output)
+  foldid <- sample(rep(1:nfold, top), dim(X_npls)[1], replace = F)
+  if(is.null(keepJ) | is.null(keepK)){
+    cont_thresholding <- TRUE
+    message("Using continuous thresholding")
+  } else {
+    cont_thresholding <- FALSE
+    message("Using discrete thresholding")
+  }
+  if(cont_thresholding){
+    search.grid <- expand.grid(list(ncomp = ncomp, threshold_j=runif(samples),
+                                    threshold_k=runif(samples)))
+  } else {
+    search.grid <- expand.grid(list(ncomp = ncomp, keepJ = keepJ,
+                                    keepK = keepK))
+  }
+  SqrdE <- numeric()
+  applied_fun <- function(y) {
+    sapply(1:nfold, function(x) {
+      suppressMessages(tryCatch(do.call(cv_fit, c(list(xtrain = X_npls[x != foldid, , ],
+                                      ytrain = Y_npls[x != foldid, , drop = FALSE],
+                                      xval = X_npls[x == foldid, , ],
+                                      yval = Y_npls[x == foldid, , drop = FALSE],
+                                      ncomp = y["ncomp"]),
+                                 list(threshold_j=y["threshold_j"])[cont_thresholding],
+                                 list(threshold_k=y["threshold_k"])[cont_thresholding],
+                                 list(keepJ=rep(y["keepJ"], y["ncomp"]))[!cont_thresholding],
+                                 list(keepK=rep(y["keepK"], y["ncomp"]))[!cont_thresholding], ...)),
+               error=function(x) NA))
+    })
+  }
+  if (parallel) {
+    cv_res <- future.apply::future_apply(search.grid, 1, applied_fun)
+  } else {
+    cv_res <- pbapply::pbapply(search.grid, 1, applied_fun)
+  }
+  cv_mean <- apply(cv_res, 2, function(x) mean(x, na.rm = TRUE))
+  cv_se <- apply(cv_res, 2, function(x) sd(x, na.rm=TRUE)/sqrt(nfold))
+  best_model <- search.grid[which.min(cv_mean), ]
+  output <- list(best_parameters = best_model, cv_mean = cv_mean,
+                 cv_se = cv_se, cv_grid = search.grid)
+  class(output)<-"cvsNPLS"
+  return(output)
 }
+
+#   function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
+#                      keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2, ...) {
+#     if (parallel & (parallel::detectCores()>1)) {
+#         cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
+#         parallel::clusterExport(cl, list(deparse(substitute(X_npls)),
+#                                          deparse(substitute(Y_npls))))
+#         parallel::clusterCall(cl, function() require(sNPLS))
+#     }
+#   if(length(dim(Y_npls)) == 3) Y_npls <- unfold3w(Y_npls)
+#   top <- ceiling(dim(X_npls)[1]/nfold)
+#     foldid <- sample(rep(1:nfold, top), dim(X_npls)[1], replace = F)
+#     search.grid <- expand.grid(list(ncomp = ncomp, keepJ = keepJ, keepK = keepK))
+#     SqrdE <- numeric()
+#     applied_fun <- function(y) {
+#         sapply(1:nfold, function(x) {
+#             tryCatch(cv_fit(xtrain = X_npls[x != foldid, , ],
+#                             ytrain = Y_npls[x != foldid, , drop = FALSE],
+#                             xval = X_npls[x == foldid, , ],
+#                             yval = Y_npls[x == foldid, , drop = FALSE],
+#                             ncomp = y["ncomp"],
+#                             keepJ = rep(y["keepJ"], y["ncomp"]),
+#                             keepK = rep(y["keepK"], y["ncomp"]), ...),
+#                      error=function(x) NA)
+#           })
+#     }
+#     if (parallel) {
+#         cv_res <- parallel::parApply(cl, search.grid, 1, applied_fun)
+#         parallel::stopCluster(cl)
+#     } else cv_res <- pbapply::pbapply(search.grid, 1, applied_fun)
+#     cv_mean <- apply(cv_res, 2, function(x) mean(x, na.rm = TRUE))
+#     cv_se <- apply(cv_res, 2, function(x) sd(x, na.rm=TRUE)/sqrt(nfold))
+#     best_model <- search.grid[which.min(cv_mean), ]
+#     output <- list(best_parameters = best_model, cv_mean = cv_mean,
+#                    cv_se = cv_se, cv_grid = search.grid)
+#     class(output)<-"cvsNPLS"
+#     return(output)
+# }
 
 #' Internal function for \code{cv_snpls}
 #'
@@ -246,18 +321,28 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
 #' @param xval A three-way test array
 #' @param yval A response test matrix
 #' @param ncomp Number of components for the sNPLS model
+#' @param threshold_j Threshold value for the L1 penalty on Wj (scaled between 0-1)
+#' @param threshold_k Threshold value for the L1 penalty on Wk (scaled between 0-1)
 #' @param keepJ Number of variables to keep for each component
 #' @param keepK Number of 'times' to keep for each component
 #' @param ... Further arguments passed to sNPLS
 #' @return Returns the CV mean squared error
 #' @export
-cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...) {
-  fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ = keepJ,
-               keepK = keepK, silent = TRUE, ...)
+cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshold_k=NULL, keepJ=NULL, keepK=NULL,  ...) {
+  fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ=keepJ, keepK=keepK, threshold_j = threshold_j,
+               threshold_k = threshold_k, silent = TRUE, ...)
   Y_pred <- predict(fit, xval)
   CVE <- sqrt(mean((Y_pred - yval)^2))
   return(CVE)
 }
+
+#   function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...) {
+#   fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ = keepJ,
+#                keepK = keepK, silent = TRUE, ...)
+#   Y_pred <- predict(fit, xval)
+#   CVE <- sqrt(mean((Y_pred - yval)^2))
+#   return(CVE)
+# }
 
 #' Plots for sNPLS model fits
 #'
@@ -448,18 +533,31 @@ fitted.sNPLS <- function(object, ...){
 #' @param ... Arguments passed to \code{car::scatter3d}
 #' @return A 3D scatter plot with the results of the cross validation
 #' @export
-plot.cvsNPLS <- function(x, facets=TRUE, ...) {
-  df_grid <- data.frame(KeepJ=x$cv_grid$keepJ, KeepK=paste("KeepK =", x$cv_grid$keepK, sep=" "), CVE=x$cv_mean, Ncomp=paste("Ncomp =", x$cv_grid$ncomp, sep=" "))
-  if(facets){
-    ggplot2::ggplot(df_grid, ggplot2::aes_string(x="KeepJ", y="CVE"))+ggplot2::geom_line()+ggplot2::facet_grid(KeepK ~ Ncomp)+
-      ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$KeepJ)))<=10) round(max(0, min(df_grid$KeepJ)):max(df_grid$KeepJ)) else round(seq(max(0, min(df_grid$KeepJ)), max(df_grid$KeepJ), by= ceiling(max(df_grid$KeepJ)/20)*2)))+
+plot.cvsNPLS <- function(x, ...) {
+  cont_thresholding <- names(x$cv_grid)[2] == "threshold_j"
+  df_grid <- data.frame(threshold_j=x$cv_grid[,2], threshold_k=x$cv_grid[,3], CVE=x$cv_mean, Ncomp=paste("Ncomp =", x$cv_grid$ncomp, sep=" "))
+  if(!cont_thresholding) names(df_grid)[c(1, 2)] <- c("KeepJ", "KeepK")
+  if(cont_thresholding){
+    ggplot2::ggplot(df_grid, ggplot2::aes_string(x="threshold_j", y="CVE"))+ggplot2::geom_point()+ggplot2::geom_smooth()+ggplot2::facet_grid(cut(threshold_k,10) ~ Ncomp)+
       ggplot2::theme_bw()
-  } else{
-    car::scatter3d(x$cv_grid$keepJ, x$cv_mean, x$cv_grid$keepK, groups = if (length(unique(x$cv_grid$ncomp)) > 1) factor(x$cv_grid$ncomp) else NULL,
-                   surface = TRUE, fit = "smooth", axis.col = c("black", "black", "black"), xlab = "KeepJ", ylab = "CVE", zlab = "KeepK", parallel = FALSE, ...)
-    rgl::grid3d(c("x", "y", "z"), col = "gray", lwd = 1, lty = 1, n = 5)
+  } else {
+      ggplot2::ggplot(df_grid, ggplot2::aes_string(x="KeepJ", y="CVE"))+ggplot2::geom_point()+ggplot2::geom_line()+ggplot2::facet_grid(KeepK ~ Ncomp)+
+        ggplot2::theme_bw()
   }
 }
+
+#   function(x, facets=TRUE, ...) {
+#   df_grid <- data.frame(KeepJ=x$cv_grid$keepJ, KeepK=paste("KeepK =", x$cv_grid$keepK, sep=" "), CVE=x$cv_mean, Ncomp=paste("Ncomp =", x$cv_grid$ncomp, sep=" "))
+#   if(facets){
+#     ggplot2::ggplot(df_grid, ggplot2::aes_string(x="KeepJ", y="CVE"))+ggplot2::geom_line()+ggplot2::facet_grid(KeepK ~ Ncomp)+
+#       ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$KeepJ)))<=10) round(max(0, min(df_grid$KeepJ)):max(df_grid$KeepJ)) else round(seq(max(0, min(df_grid$KeepJ)), max(df_grid$KeepJ), by= ceiling(max(df_grid$KeepJ)/20)*2)))+
+#       ggplot2::theme_bw()
+#   } else{
+#     car::scatter3d(x$cv_grid$keepJ, x$cv_mean, x$cv_grid$keepK, groups = if (length(unique(x$cv_grid$ncomp)) > 1) factor(x$cv_grid$ncomp) else NULL,
+#                    surface = TRUE, fit = "smooth", axis.col = c("black", "black", "black"), xlab = "KeepJ", ylab = "CVE", zlab = "KeepK", parallel = FALSE, ...)
+#     rgl::grid3d(c("x", "y", "z"), col = "gray", lwd = 1, lty = 1, n = 5)
+#   }
+# }
 
 #' Coefficients from a sNPLS model
 #'
@@ -487,34 +585,54 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param X_npls A three-way array containing the predictors.
 #' @param Y_npls A matrix containing the response.
 #' @param ncomp A vector with the different number of components to test
+#' @param samples Number of samples for performing random search in continuous thresholding
 #' @param keepJ A vector with the different number of selected variables to test
 #' @param keepK A vector with the different number of selected 'times' to test
 #' @param nfold Number of folds for the cross-validation
-#' @param parallel Should the computations be performed in parallel?
-#' @param free_cores If parallel computations are performed how many cores are left unused
-#' @param ... Further arguments passed to cv_snpls
 #' @param times Number of repetitions of the cross-validation
+#' @param parallel Should the computations be performed in parallel?
+#' @param ... Further arguments passed to cv_snpls
 #' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
 #' @importFrom stats var
 #' @export
-repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK = 1:dim(X_npls)[3],
-                    nfold = 10, parallel = TRUE, free_cores = 2, times=30, ...){
-  if(parallel & (parallel::detectCores()>1)){
-    cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
-    parallel::clusterExport(cl, list(deparse(substitute(X_npls)), deparse(substitute(Y_npls))))
-    parallel::clusterCall(cl, function() require(sNPLS))
-    rep_cv<-parallel::parSapply(cl, 1:times, function(x) cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
-    parallel::stopCluster(cl)
+repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, ...){
+  if(is.null(keepJ) | is.null(keepK)){
+    cont_thresholding <- TRUE
+    message("Using continuous thresholding")
   } else {
-    rep_cv<-pbapply::pbreplicate(times, cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
+    cont_thresholding <- FALSE
+    message("Using discrete thresholding")
   }
-  resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), keepJ=sapply(rep_cv[1,], function(x) x[[2]]),
-                      keepK=sapply(rep_cv[1,], function(x) x[[3]]))
+  if(parallel){
+    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, ...)))
+  } else {
+    rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, ...)))
+  }
+  resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), threshold_j=sapply(rep_cv[1,], function(x) x[[2]]),
+                      threshold_k=sapply(rep_cv[1,], function(x) x[[3]]))
+  if(!cont_thresholding) names(resdata)[c(2, 3)] <- c("keepJ", "keepK")
   class(resdata)<-c("repeatcv", "data.frame")
   return(resdata)
 }
 
-#' Density plot for repat_cv results
+#   function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK = 1:dim(X_npls)[3],
+#                     nfold = 10, parallel = TRUE, free_cores = 2, times=30, ...){
+#   if(parallel & (parallel::detectCores()>1)){
+#     cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
+#     parallel::clusterExport(cl, list(deparse(substitute(X_npls)), deparse(substitute(Y_npls))))
+#     parallel::clusterCall(cl, function() require(sNPLS))
+#     rep_cv<-parallel::parSapply(cl, 1:times, function(x) cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
+#     parallel::stopCluster(cl)
+#   } else {
+#     rep_cv<-pbapply::pbreplicate(times, cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
+#   }
+#   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), keepJ=sapply(rep_cv[1,], function(x) x[[2]]),
+#                       keepK=sapply(rep_cv[1,], function(x) x[[3]]))
+#   class(resdata)<-c("repeatcv", "data.frame")
+#   return(resdata)
+# }
+
+#' Density plot for repeat_cv results
 #'
 #' @description Plots a grid of slices from the 3-D kernel denity estimates of the repeat_cv function
 #' @param x A repeatcv object
@@ -524,28 +642,30 @@ repeat_cv<-function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK =
 #' @importFrom stats ftable
 #' @export
 plot.repeatcv <- function(x, ...){
-  x.old <- x
+  if(names(x)[2] == "threshold_j"){
+    x.old <- x
   x<-x[,sapply(x, function(x) var(x)>0), drop=FALSE]
   if(ncol(x) < ncol(x.old)) warning(paste("\n", colnames(x.old)[!colnames(x.old) %in% colnames(x)], "is constant at", x.old[1,colnames(x.old)[!colnames(x.old) %in% colnames(x)]]))
   if(ncol(x) == 1){
-    ggplot2::ggplot(x, ggplot2::aes_string(x=colnames(x)))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
+    p <- ggplot2::ggplot(x, ggplot2::aes_string(x=colnames(x)))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
   } else{
     H.pi <- ks::Hpi(x)
     fhat <- ks::kde(x, H=H.pi, compute.cont=TRUE, gridsize = rep(151, ncol(x)))
     if(ncol(x) == 3){
       ncomp_values <- sapply(sort(unique(fhat$x[,1])), function(x) which.min(abs(fhat$eval.points[[1]]-x)))
       positions <- as.data.frame(fhat$x)
+      names(positions)[c(2,3)] <- c("keepJ", "keepK")
       positions$Ncomp <- paste("Ncomp =", positions$ncomp)
       df_grid <- expand.grid(keepJ=fhat$eval.points[[2]], keepK=fhat$eval.points[[3]])
       combl <- nrow(df_grid)
       df_grid <- df_grid[rep(1:nrow(df_grid), length(ncomp_values)),]
       df_grid$density <- unlist(lapply(ncomp_values, function(x) as.numeric(matrix(fhat$estimate[x,,], ncol=1))))
       df_grid$Ncomp <- rep(paste("Ncomp =", sort(unique(positions$ncomp))), each=combl)
-      ggplot2::ggplot(df_grid, ggplot2::aes_string("keepJ", "keepK", fill="density"))+ggplot2::geom_raster()+
+      p <- ggplot2::ggplot(df_grid, ggplot2::aes_string("keepJ", "keepK", fill="density"))+ggplot2::geom_raster()+
         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
         ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x="keepJ", y="keepK"), data=positions) +ggplot2::facet_grid(~Ncomp)+
-        ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(max(0, min(df_grid$keepJ)):max(df_grid$keepJ)) else round(seq(max(0, min(df_grid$keepJ)), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
-        ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid$keepK)))<=10) round(max(0, min(df_grid$keepK)):max(df_grid$keepK)) else round(seq(max(0, min(df_grid$keepK)), max(df_grid$keepK), by= ceiling(max(df_grid$keepK)/20)*2)))+
+        ggplot2::scale_x_continuous(limits=c(0, 1))+
+        ggplot2::scale_y_continuous(limits=c(0, 1))+
         ggplot2::scale_size_area(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
                                  labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
     } else {
@@ -553,15 +673,60 @@ plot.repeatcv <- function(x, ...){
       df_grid <- expand.grid(V1=fhat$eval.points[[1]], V2=fhat$eval.points[[2]])
       names(df_grid)<-colnames(positions)
       df_grid$density <- as.numeric(matrix(fhat$estimate, ncol=1))
-      ggplot2::ggplot(df_grid, ggplot2::aes_string(colnames(df_grid)[1], colnames(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
+      p <- ggplot2::ggplot(df_grid, ggplot2::aes_string(colnames(df_grid)[1], colnames(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
         ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=colnames(df_grid)[1], y=colnames(df_grid)[2]), data=positions)+
-        ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid[,1])))<=10) round(max(0, min(df_grid[,1])):max(df_grid[,1])) else round(seq(max(0, min(df_grid[,1])), max(df_grid[,1]), by= ceiling(max(df_grid[,1])/20)*2)))+
-        ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid[,2])))<=10) round(max(0, min(df_grid[,2])):max(df_grid[,2])) else round(seq(max(0, min(df_grid[,2])), max(df_grid[,2]), by= ceiling(max(df_grid[,2])/20)*2)))+
+        ggplot2::scale_x_continuous(limits=c(0, 1))+
+        ggplot2::scale_y_continuous(limits=c(0, 1))+
         ggplot2::scale_size_continuous(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
-                                 labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
+                                       labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
     }
   }
+  print(p)
+  df_grid[which.max(df_grid$density),]
+} else {
+
+   x.old <- x
+   x<-x[,sapply(x, function(x) var(x)>0), drop=FALSE]
+   if(ncol(x) < ncol(x.old)) warning(paste("\n", colnames(x.old)[!colnames(x.old) %in% colnames(x)], "is constant at", x.old[1,colnames(x.old)[!colnames(x.old) %in% colnames(x)]]))
+   if(ncol(x) == 1){
+     ggplot2::ggplot(x, ggplot2::aes_string(x=colnames(x)))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
+   } else{
+     H.pi <- ks::Hpi(x)
+     fhat <- ks::kde(x, H=H.pi, compute.cont=TRUE, gridsize = rep(151, ncol(x)))
+     if(ncol(x) == 3){
+       ncomp_values <- sapply(sort(unique(fhat$x[,1])), function(x) which.min(abs(fhat$eval.points[[1]]-x)))
+       positions <- as.data.frame(fhat$x)
+       positions$Ncomp <- paste("Ncomp =", positions$ncomp)
+       df_grid <- expand.grid(keepJ=fhat$eval.points[[2]], keepK=fhat$eval.points[[3]])
+       combl <- nrow(df_grid)
+       df_grid <- df_grid[rep(1:nrow(df_grid), length(ncomp_values)),]
+       df_grid$density <- unlist(lapply(ncomp_values, function(x) as.numeric(matrix(fhat$estimate[x,,], ncol=1))))
+       df_grid$Ncomp <- rep(paste("Ncomp =", sort(unique(positions$ncomp))), each=combl)
+       p <- ggplot2::ggplot(df_grid, ggplot2::aes_string("keepJ", "keepK", fill="density"))+ggplot2::geom_raster()+
+         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
+         ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x="keepJ", y="keepK"), data=positions) +ggplot2::facet_grid(~Ncomp)+
+         ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(max(0, min(df_grid$keepJ)):max(df_grid$keepJ)) else round(seq(max(0, min(df_grid$keepJ)), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
+         ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid$keepK)))<=10) round(max(0, min(df_grid$keepK)):max(df_grid$keepK)) else round(seq(max(0, min(df_grid$keepK)), max(df_grid$keepK), by= ceiling(max(df_grid$keepK)/20)*2)))+
+         ggplot2::scale_size_area(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
+                                  labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
+     } else {
+       positions <- as.data.frame(fhat$x)
+       df_grid <- expand.grid(V1=fhat$eval.points[[1]], V2=fhat$eval.points[[2]])
+       names(df_grid)<-colnames(positions)
+       df_grid$density <- as.numeric(matrix(fhat$estimate, ncol=1))
+       p <- ggplot2::ggplot(df_grid, ggplot2::aes_string(colnames(df_grid)[1], colnames(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
+         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
+         ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=colnames(df_grid)[1], y=colnames(df_grid)[2]), data=positions)+
+         ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid[,1])))<=10) round(max(0, min(df_grid[,1])):max(df_grid[,1])) else round(seq(max(0, min(df_grid[,1])), max(df_grid[,1]), by= ceiling(max(df_grid[,1])/20)*2)))+
+         ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid[,2])))<=10) round(max(0, min(df_grid[,2])):max(df_grid[,2])) else round(seq(max(0, min(df_grid[,2])), max(df_grid[,2]), by= ceiling(max(df_grid[,2])/20)*2)))+
+         ggplot2::scale_size_continuous(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
+                                  labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
+     }
+   }
+   print(p)
+   df_grid[which.max(df_grid$density),]
+   }
 }
 
 

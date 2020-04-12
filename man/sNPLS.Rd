@@ -4,10 +4,22 @@
 \alias{sNPLS}
 \title{Fit a sNPLS model}
 \usage{
-sNPLS(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
-  keepJ = rep(ncol(XN), ncomp), keepK = rep(rev(dim(XN))[1], ncomp),
-  scale.X = TRUE, center.X = TRUE, scale.Y = TRUE, center.Y = TRUE,
-  silent = F)
+sNPLS(
+  XN,
+  Y,
+  ncomp = 2,
+  threshold_j = 0,
+  threshold_k = 0,
+  keepJ = NULL,
+  keepK = NULL,
+  scale.X = TRUE,
+  center.X = TRUE,
+  scale.Y = TRUE,
+  center.Y = TRUE,
+  conver = 1e-16,
+  max.iteration = 10000,
+  silent = F
+)
 }
 \arguments{
 \item{XN}{A three-way array containing the predictors.}
@@ -16,13 +28,13 @@ sNPLS(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
 
 \item{ncomp}{Number of components in the projection}
 
-\item{conver}{Convergence criterion}
+\item{threshold_j}{Threshold value for the L1 penalty on Wj (scaled between 0-1)}
 
-\item{max.iteration}{Maximum number of iterations}
+\item{threshold_k}{Threshold value for the L1 penalty on Wk (scaled between 0-1)}
 
-\item{keepJ}{Number of variables to keep for each component}
+\item{keepJ}{Number of variables to keep for each component, ignored if threshold_j is provided}
 
-\item{keepK}{Number of 'times' to keep for each component}
+\item{keepK}{Number of 'times' to keep for each component, ignored if threshold_k is provided}
 
 \item{scale.X}{Perform unit variance scaling on X?}
 
@@ -31,6 +43,10 @@ sNPLS(XN, Y, ncomp = 2, conver = 1e-16, max.iteration = 10000,
 \item{scale.Y}{Perform unit variance scaling on Y?}
 
 \item{center.Y}{Perform mean centering on Y?}
+
+\item{conver}{Convergence criterion}
+
+\item{max.iteration}{Maximum number of iterations}
 
 \item{silent}{Show output?}
 }

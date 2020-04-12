@@ -4,8 +4,7 @@
 \alias{plot.sNPLS}
 \title{Plots for sNPLS model fits}
 \usage{
-\method{plot}{sNPLS}(x, type = "T", comps = c(1, 2), labels = TRUE,
-  group = NULL, ...)
+\method{plot}{sNPLS}(x, type = "T", comps = c(1, 2), labels = TRUE, group = NULL, ...)
 }
 \arguments{
 \item{x}{A sNPLS model fit}

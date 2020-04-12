@@ -4,9 +4,17 @@
 \alias{cv_snpls}
 \title{Cross-validation for a sNPLS model}
 \usage{
-cv_snpls(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
-  keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2,
-  ...)
+cv_snpls(
+  X_npls,
+  Y_npls,
+  ncomp = 1:3,
+  samples = 20,
+  keepJ = NULL,
+  keepK = NULL,
+  nfold = 10,
+  parallel = TRUE,
+  ...
+)
 }
 \arguments{
 \item{X_npls}{A three-way array containing the predictors.}
@@ -15,15 +23,15 @@ cv_snpls(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
 
 \item{ncomp}{A vector with the different number of components to test}
 
-\item{keepJ}{A vector with the different number of selected variables to test}
+\item{samples}{Number of samples for performing random search in continuous thresholding}
 
-\item{keepK}{A vector with the different number of selected 'times' to test}
+\item{keepJ}{A vector with the different number of selected variables to test for discrete thresholding}
+
+\item{keepK}{A vector with the different number of selected 'times' to test for discrete thresholding}
 
 \item{nfold}{Number of folds for the cross-validation}
 
 \item{parallel}{Should the computations be performed in parallel?}
-
-\item{free_cores}{If parallel computations are performed how many cores are left unused}
 
 \item{...}{Further arguments passed to sNPLS}
 }

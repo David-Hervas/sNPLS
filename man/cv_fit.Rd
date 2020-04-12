@@ -4,7 +4,18 @@
 \alias{cv_fit}
 \title{Internal function for \code{cv_snpls}}
 \usage{
-cv_fit(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...)
+cv_fit(
+  xtrain,
+  ytrain,
+  xval,
+  yval,
+  ncomp,
+  threshold_j = NULL,
+  threshold_k = NULL,
+  keepJ = NULL,
+  keepK = NULL,
+  ...
+)
 }
 \arguments{
 \item{xtrain}{A three-way training array}
@@ -16,6 +27,10 @@ cv_fit(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...)
 \item{yval}{A response test matrix}
 
 \item{ncomp}{Number of components for the sNPLS model}
+
+\item{threshold_j}{Threshold value for the L1 penalty on Wj (scaled between 0-1)}
+
+\item{threshold_k}{Threshold value for the L1 penalty on Wk (scaled between 0-1)}
 
 \item{keepJ}{Number of variables to keep for each component}
 
