@@ -642,11 +642,12 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
 #' @importFrom stats ftable
 #' @export
 plot.repeatcv <- function(x, ...){
-  if(names(x)[2] == "threshold_j"){
-    x.old <- x
+  x.old <- x
   x<-x[,sapply(x, function(x) var(x)>0), drop=FALSE]
   if(ncol(x) < ncol(x.old)) warning(paste("\n", colnames(x.old)[!colnames(x.old) %in% colnames(x)], "is constant at", x.old[1,colnames(x.old)[!colnames(x.old) %in% colnames(x)]]))
   if(ncol(x) == 1){
+    densities <- density(x[,1])
+    df_grid <- setNames(data.frame(densities$x, densities$y), c(colnames(x), "density"))
     p <- ggplot2::ggplot(x, ggplot2::aes_string(x=colnames(x)))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
   } else{
     H.pi <- ks::Hpi(x)
@@ -654,20 +655,23 @@ plot.repeatcv <- function(x, ...){
     if(ncol(x) == 3){
       ncomp_values <- sapply(sort(unique(fhat$x[,1])), function(x) which.min(abs(fhat$eval.points[[1]]-x)))
       positions <- as.data.frame(fhat$x)
-      names(positions)[c(2,3)] <- c("keepJ", "keepK")
-      positions$Ncomp <- paste("Ncomp =", positions$ncomp)
-      df_grid <- expand.grid(keepJ=fhat$eval.points[[2]], keepK=fhat$eval.points[[3]])
+      positions$Ncomp <- factor(positions$ncomp)
+      df_grid <- setNames(expand.grid(fhat$eval.points[[2]], fhat$eval.points[[3]]), names(positions)[c(2,3)])
       combl <- nrow(df_grid)
       df_grid <- df_grid[rep(1:nrow(df_grid), length(ncomp_values)),]
       df_grid$density <- unlist(lapply(ncomp_values, function(x) as.numeric(matrix(fhat$estimate[x,,], ncol=1))))
-      df_grid$Ncomp <- rep(paste("Ncomp =", sort(unique(positions$ncomp))), each=combl)
-      p <- ggplot2::ggplot(df_grid, ggplot2::aes_string("keepJ", "keepK", fill="density"))+ggplot2::geom_raster()+
+      df_grid$Ncomp <- factor(rep(sort(unique(positions$ncomp)), each=combl))
+      p <- ggplot2::ggplot(df_grid, ggplot2::aes_string(names(df_grid)[1], names(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
-        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x="keepJ", y="keepK"), data=positions) +ggplot2::facet_grid(~Ncomp)+
-        ggplot2::scale_x_continuous(limits=c(0, 1))+
-        ggplot2::scale_y_continuous(limits=c(0, 1))+
-        ggplot2::scale_size_area(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
-                                 labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
+        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=names(df_grid)[1], y=names(df_grid)[2]), data=positions) +ggplot2::facet_grid(~Ncomp)
+      if(names(df_grid)[1] == "threshold_j"){
+        p <- p + ggplot2::scale_x_continuous(limits=c(0, 1)) + ggplot2::scale_y_continuous(limits=c(0, 1))
+      } else {
+        p <- p + ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(max(0, min(df_grid$keepJ)):max(df_grid$keepJ)) else round(seq(max(0, min(df_grid$keepJ)), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
+          ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid$keepK)))<=10) round(max(0, min(df_grid$keepK)):max(df_grid$keepK)) else round(seq(max(0, min(df_grid$keepK)), max(df_grid$keepK), by= ceiling(max(df_grid$keepK)/20)*2)))+
+          ggplot2::scale_size_area(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
+                                   labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
+      }
     } else {
       positions <- as.data.frame(fhat$x)
       df_grid <- expand.grid(V1=fhat$eval.points[[1]], V2=fhat$eval.points[[2]])
@@ -675,58 +679,19 @@ plot.repeatcv <- function(x, ...){
       df_grid$density <- as.numeric(matrix(fhat$estimate, ncol=1))
       p <- ggplot2::ggplot(df_grid, ggplot2::aes_string(colnames(df_grid)[1], colnames(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
-        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=colnames(df_grid)[1], y=colnames(df_grid)[2]), data=positions)+
-        ggplot2::scale_x_continuous(limits=c(0, 1))+
-        ggplot2::scale_y_continuous(limits=c(0, 1))+
-        ggplot2::scale_size_continuous(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
-                                       labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
+        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=colnames(df_grid)[1], y=colnames(df_grid)[2]), data=positions)
+      if("threshold_j" %in% names(df_grid) | "threshold_k" %in% names(df_grid)){
+        p <- p + ggplot2::scale_x_continuous(limits=c(0, 1)) + ggplot2::scale_y_continuous(limits=c(0, 1))
+      } else {
+        p <- p + ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid[,1])))<=10) round(max(0, min(df_grid[,1])):max(df_grid[,1])) else round(seq(max(0, min(df_grid[,1])), max(df_grid[,1]), by= ceiling(max(df_grid[,1])/20)*2)))+
+          ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid[,2])))<=10) round(max(0, min(df_grid[,2])):max(df_grid[,2])) else round(seq(max(0, min(df_grid[,2])), max(df_grid[,2]), by= ceiling(max(df_grid[,2])/20)*2)))+
+          ggplot2::scale_size_continuous(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
+                                         labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
+      }
     }
   }
   print(p)
-  df_grid[which.max(df_grid$density),]
-} else {
-
-   x.old <- x
-   x<-x[,sapply(x, function(x) var(x)>0), drop=FALSE]
-   if(ncol(x) < ncol(x.old)) warning(paste("\n", colnames(x.old)[!colnames(x.old) %in% colnames(x)], "is constant at", x.old[1,colnames(x.old)[!colnames(x.old) %in% colnames(x)]]))
-   if(ncol(x) == 1){
-     ggplot2::ggplot(x, ggplot2::aes_string(x=colnames(x)))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
-   } else{
-     H.pi <- ks::Hpi(x)
-     fhat <- ks::kde(x, H=H.pi, compute.cont=TRUE, gridsize = rep(151, ncol(x)))
-     if(ncol(x) == 3){
-       ncomp_values <- sapply(sort(unique(fhat$x[,1])), function(x) which.min(abs(fhat$eval.points[[1]]-x)))
-       positions <- as.data.frame(fhat$x)
-       positions$Ncomp <- paste("Ncomp =", positions$ncomp)
-       df_grid <- expand.grid(keepJ=fhat$eval.points[[2]], keepK=fhat$eval.points[[3]])
-       combl <- nrow(df_grid)
-       df_grid <- df_grid[rep(1:nrow(df_grid), length(ncomp_values)),]
-       df_grid$density <- unlist(lapply(ncomp_values, function(x) as.numeric(matrix(fhat$estimate[x,,], ncol=1))))
-       df_grid$Ncomp <- rep(paste("Ncomp =", sort(unique(positions$ncomp))), each=combl)
-       p <- ggplot2::ggplot(df_grid, ggplot2::aes_string("keepJ", "keepK", fill="density"))+ggplot2::geom_raster()+
-         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
-         ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x="keepJ", y="keepK"), data=positions) +ggplot2::facet_grid(~Ncomp)+
-         ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$keepJ)))<=10) round(max(0, min(df_grid$keepJ)):max(df_grid$keepJ)) else round(seq(max(0, min(df_grid$keepJ)), max(df_grid$keepJ), by= ceiling(max(df_grid$keepJ)/20)*2)))+
-         ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid$keepK)))<=10) round(max(0, min(df_grid$keepK)):max(df_grid$keepK)) else round(seq(max(0, min(df_grid$keepK)), max(df_grid$keepK), by= ceiling(max(df_grid$keepK)/20)*2)))+
-         ggplot2::scale_size_area(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
-                                  labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
-     } else {
-       positions <- as.data.frame(fhat$x)
-       df_grid <- expand.grid(V1=fhat$eval.points[[1]], V2=fhat$eval.points[[2]])
-       names(df_grid)<-colnames(positions)
-       df_grid$density <- as.numeric(matrix(fhat$estimate, ncol=1))
-       p <- ggplot2::ggplot(df_grid, ggplot2::aes_string(colnames(df_grid)[1], colnames(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
-         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
-         ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=colnames(df_grid)[1], y=colnames(df_grid)[2]), data=positions)+
-         ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid[,1])))<=10) round(max(0, min(df_grid[,1])):max(df_grid[,1])) else round(seq(max(0, min(df_grid[,1])), max(df_grid[,1]), by= ceiling(max(df_grid[,1])/20)*2)))+
-         ggplot2::scale_y_continuous(breaks=if(round(diff(range(df_grid[,2])))<=10) round(max(0, min(df_grid[,2])):max(df_grid[,2])) else round(seq(max(0, min(df_grid[,2])), max(df_grid[,2]), by= ceiling(max(df_grid[,2])/20)*2)))+
-         ggplot2::scale_size_continuous(breaks=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))],
-                                  labels=if(length(sort(unique(as.numeric(ftable(positions))))[-1])<=7) sort(unique(as.numeric(ftable(positions))))[-1] else (1:max(as.numeric(ftable(positions))))[round(seq(1, max(as.numeric(ftable(positions))), length.out = 7))])
-     }
-   }
-   print(p)
-   df_grid[which.max(df_grid$density),]
-   }
+  data.frame(x.old[1, !colnames(x.old) %in% colnames(x), drop=FALSE], df_grid[which.max(df_grid$density),])
 }
 
 
