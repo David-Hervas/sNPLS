@@ -8,8 +8,8 @@ sNPLS(
   XN,
   Y,
   ncomp = 2,
-  threshold_j = 0,
-  threshold_k = 0,
+  threshold_j = 0.5,
+  threshold_k = 0.5,
   keepJ = NULL,
   keepK = NULL,
   scale.X = TRUE,
@@ -18,7 +18,8 @@ sNPLS(
   center.Y = TRUE,
   conver = 1e-16,
   max.iteration = 10000,
-  silent = F
+  silent = F,
+  method = "sNPLS"
 )
 }
 \arguments{
@@ -49,6 +50,8 @@ sNPLS(
 \item{max.iteration}{Maximum number of iterations}
 
 \item{silent}{Show output?}
+
+\item{method}{Select between L1 penalization (sNPLS), variable selection with Selectivity Ratio (sNPLS-SR) or variable selection with VIP (sNPLS-VIP)}
 }
 \value{
 A fitted sNPLS model
@@ -67,5 +70,5 @@ fit<-sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
 \references{
 C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
 
-Shen, H. and Huang, J. Z. (2008). Sparse principal component analysis via regularized low rank matrix approximation. Journal of Multivariate Analysis 99, 1015-1034
+Hervas, D. Prats-Montalban, J. M., Garcia-Cañaveras, J. C., Lahoz, A., & Ferrer, A. (2019). Sparse N-way partial least squares by L1-penalization. Chemometrics and Intelligent Laboratory Systems, 185, 85-91.
 }

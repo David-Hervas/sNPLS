@@ -15,9 +15,10 @@
 #' @param conver Convergence criterion
 #' @param max.iteration Maximum number of iterations
 #' @param silent Show output?
+#' @param method Select between L1 penalization (sNPLS), variable selection with Selectivity Ratio (sNPLS-SR) or variable selection with VIP (sNPLS-VIP)
 #' @return A fitted sNPLS model
 #' @references C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
-#' @references Shen, H. and Huang, J. Z. (2008). Sparse principal component analysis via regularized low rank matrix approximation. Journal of Multivariate Analysis 99, 1015-1034
+#' @references Hervas, D. Prats-Montalban, J. M., Garcia-Cañaveras, J. C., Lahoz, A., & Ferrer, A. (2019). Sparse N-way partial least squares by L1-penalization. Chemometrics and Intelligent Laboratory Systems, 185, 85-91.
 #' @examples
 #' X_npls<-array(rpois(7500, 10), dim=c(50, 50, 3))
 #'
@@ -27,146 +28,255 @@
 #' fit<-sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
 #' @importFrom stats sd
 #' @export
-sNPLS <- function(XN, Y, ncomp = 2, threshold_j = 0, threshold_k = 0,
-                  keepJ = NULL, keepK = NULL,
-                  scale.X=TRUE, center.X=TRUE, scale.Y=TRUE, center.Y=TRUE,
-                  conver = 1e-16, max.iteration = 10000, silent = F){
+sNPLS <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, keepJ = NULL, keepK = NULL, scale.X=TRUE, center.X=TRUE,
+         scale.Y=TRUE, center.Y=TRUE, conver = 1e-16, max.iteration = 10000, silent = F, method="sNPLS"){
 
-    mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
-    thresholding <- function(x, nj) {
-      ifelse(abs(x) > abs(x[order(abs(x))][nj]),
-             (abs(x) - abs(x[order(abs(x))][nj])) *
-               sign(x), 0)
-    }
-    rel_thresholding <- function(x, j_rel){
-      ifelse(abs(x)-max(abs(x))*j_rel <= 0, 0, sign(x)*(abs(x)-max(abs(x))*j_rel))
-    }
-    if(is.null(keepJ) | is.null(keepK)){
-      cont_thresholding <- TRUE
-      message("Using continuous thresholding")
-    } else {
-      cont_thresholding <- FALSE
-      message("Using discrete thresholding")
-    }
-    if(length(threshold_j) == 1 & ncomp > 1) threshold_j <- rep(threshold_j, ncomp)
-    if(length(threshold_k) == 1 & ncomp > 1) threshold_k <- rep(threshold_k, ncomp)
-    if (length(dim(Y)) == 3) Y <- unfold3w(Y)
-    if (length(dim(XN)) != 3)
-        stop("'XN' is not a three-way array")
-    if (!is.null(rownames(XN)))
-        y.names <- x.names <- rownames(XN) else y.names <- x.names <- 1:dim(XN)[1]
-    if (!is.null(colnames(XN)))
-        var.names <- colnames(XN) else var.names <- paste("X.", 1:dim(XN)[2], sep = "")
-    if (!is.null(dimnames(XN)[[3]]))
-        x3d.names <- dimnames(XN)[[3]] else x3d.names <- paste("Z.", 1:dim(XN)[3], sep = "")
-    if (!is.null(colnames(Y)))
-        yvar.names <- colnames(Y) else yvar.names <- paste("Y.", 1:dim(Y)[2], sep = "")
-    if(!center.X) center.X <- rep(0, ncol(XN)*dim(XN)[3])
-    if(!center.Y) center.Y <- rep(0, ncol(Y))
-    if(!scale.X) scale.X <- rep(1, ncol(XN)*dim(XN)[3])
-    if(!scale.Y) scale.Y <- rep(1, ncol(Y))
+  mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
+  thresholding <- function(x, nj) {
+    ifelse(abs(x) > abs(x[order(abs(x))][nj]),
+           (abs(x) - abs(x[order(abs(x))][nj])) *
+             sign(x), 0)
+  }
+  rel_thresholding <- function(x, j_rel){
+    ifelse(abs(x)-max(abs(x))*j_rel <= 0, 0, sign(x)*(abs(x)-max(abs(x))*j_rel))
+  }
+  if (length(dim(Y)) == 3) Y <- unfold3w(Y)
+  if (length(dim(XN)) != 3) stop("'XN' is not a three-way array")
+  if (!is.null(rownames(XN))){
+    y.names <- x.names <- rownames(XN)
+  } else {
+    y.names <- x.names <- 1:dim(XN)[1]
+  }
+  if (!is.null(colnames(XN))){
+    var.names <- colnames(XN)
+  } else {
+    var.names <- paste("X.", 1:dim(XN)[2], sep = "")
+  }
+  if (!is.null(dimnames(XN)[[3]])){
+    x3d.names <- dimnames(XN)[[3]]
+  } else {
+    x3d.names <- paste("Z.", 1:dim(XN)[3], sep = "")
+  }
+  if (!is.null(colnames(Y))){
+    yvar.names <- colnames(Y)
+  } else {
+    yvar.names <- paste("Y.", 1:dim(Y)[2], sep = "")
+  }
+  if(!center.X) center.X <- rep(0, ncol(XN)*dim(XN)[3])
+  if(!center.Y) center.Y <- rep(0, ncol(Y))
+  if(!scale.X) scale.X <- rep(1, ncol(XN)*dim(XN)[3])
+  if(!scale.Y) scale.Y <- rep(1, ncol(Y))
+  if(is.null(keepJ) | is.null(keepK) | method!="sNPLS"){
+    cont_thresholding <- TRUE
+    message(paste("Using continuous thresholding (", method, ")", sep=""))
+  } else {
+    cont_thresholding <- FALSE
+    message("Using discrete L1-thresholding")
+  }
+  if(length(threshold_j) == 1 & ncomp > 1) threshold_j <- rep(threshold_j, ncomp)
+  if(length(threshold_k) == 1 & ncomp > 1) threshold_k <- rep(threshold_k, ncomp)
 
-    # Matrices initialization
-    Tm <- U <- Q <- WsupraJ <- WsupraK <- X <- P <- NULL
-    Yorig <- Y
-    Y <- scale(Y, center = center.Y, scale = scale.Y)
-    y_center <- attr(Y, "scaled:center")
-    y_scale <- attr(Y, "scaled:scale")
-    B <- matrix(0, ncol = ncomp, nrow = ncomp)
-    Gu <- vector("list", ncomp)
-    S <- svd(Y)$d
-    u <- Y[, S == max(S)]  #Column with the highest variance
-    # Unfolding of XN en 2-D
-    X <- unfold3w(XN)
-    #Check for zero variance columns and fix them with some noise
-    if(any(apply(X, 2, sd)==0)){
-      X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
-    }
-    # Center and scale
-    Xd <- scale(X, center = center.X, scale = scale.X)
-    x_center <- attr(Xd, "scaled:center")
-    x_scale <- attr(Xd, "scaled:scale")
+  # Matrices initialization
+  U <- Q <- X <- P <- NULL
+  if(method == "sNPLS"){
+    WsupraJ <- WsupraK <- Tm <- NULL
+  } else{
+    WsupraJ <- matrix(nrow=ncol(XN), ncol=ncomp)
+    WsupraK <- matrix(nrow=dim(XN)[3], ncol=ncomp)
+    Tm <- matrix(nrow=nrow(XN), ncol=ncomp)
+  }
+  Yorig <- Y
+  Y <- scale(Y, center = center.Y, scale = scale.Y)
+  y_center <- attr(Y, "scaled:center")
+  y_scale <- attr(Y, "scaled:scale")
+  B <- matrix(0, ncol = ncomp, nrow = ncomp)
+  Gu <- vector("list", ncomp)
+  S <- svd(Y)$d
+  u <- Y[, S == max(S)]  #Column with the highest variance
 
-    # Main loop for each component
-    for (f in 1:ncomp) {
-        if(!cont_thresholding){
-          nj <- ncol(XN) - keepJ[f]
-          nk <- dim(XN)[3] - keepK[f]
+  # Unfolding of XN en 2-D
+  X <- unfold3w(XN)
+  #Check for zero variance columns and fix them with some noise
+  if(any(apply(X, 2, sd)==0)){
+    X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
+  }
+
+  # Center and scale
+  Xd <- scale(X, center = center.X, scale = scale.X)
+  x_center <- attr(Xd, "scaled:center")
+  x_scale <- attr(Xd, "scaled:scale")
+
+  # Main loop for each component
+  for (f in 1:ncomp) {
+    if(!cont_thresholding){
+      nj <- ncol(XN) - keepJ[f]
+      nk <- dim(XN)[3] - keepK[f]
+    }
+    if(method %in% c("sNPLS-VIP", "sNPLS-SR")){
+      nj <- ncol(XN)
+      nk <- dim(XN)[3]
+      wselj <- rep(1, nj)
+      wselk <- rep(1, nk)
+    }
+    it = 1
+    while (it < max.iteration) {
+      Zrow <- crossprod(u, Xd)
+      Z <- matrix(Zrow, nrow = dim(XN)[2], ncol = dim(XN)[3])
+      svd.z <- svd(Z)
+      wsupraj <- svd.z$u[, 1]
+      # L1 penalization for wsupraj
+      if(method == "sNPLS"){
+        if(cont_thresholding){
+          wsupraj <- rel_thresholding(wsupraj, threshold_j[f])
+        } else {
+          if (nj != 0) {
+            wsupraj <- thresholding(wsupraj, nj)
+          }
         }
-        it = 1
-        while (it < max.iteration) {
-            Zrow <- crossprod(u, Xd)
-            Z <- matrix(Zrow, nrow = dim(XN)[2], ncol = dim(XN)[3])
-            svd.z <- svd(Z)
-            wsupraj <- svd.z$u[, 1]
-            # L1 penalization for wsupraj
-            if(cont_thresholding){
-              wsupraj <- rel_thresholding(wsupraj, threshold_j[f])
-            } else {
-              if (nj != 0) {
-                wsupraj <- thresholding(wsupraj, nj)
-              }
-            }
-            ##########
-            wsuprak <- svd.z$v[, 1]
-            # L1 penalization for wsuprak
-            if(cont_thresholding){
-              wsuprak <- rel_thresholding(wsuprak, threshold_k[f])
-            } else {
-              if (nk != 0) {
-                wsuprak <- thresholding(wsuprak, nk)
-              }
-            }
-            ##########
-            tf <- Xd %*% kronecker(wsuprak, wsupraj)
-            qf <- crossprod(Y, tf)/mynorm(crossprod(Y, tf))
-            uf <- Y %*% qf
-            if (sum((uf - u)^2) < conver) {
-                if (!silent) {
-                  cat(paste("Component number ", f, "\n"))
-                  cat(paste("Number of iterations: ", it, "\n"))
-                }
-                it <- max.iteration
-                Tm <- cbind(Tm, tf)
-                WsupraJ <- cbind(WsupraJ, wsupraj)
-                WsupraK <- cbind(WsupraK, wsuprak)
-                bf <- MASS::ginv(crossprod(Tm)) %*% t(Tm) %*% uf
-                B[1:length(bf), f] <- bf
-                Q <- cbind(Q, qf)
-                U <- cbind(U, uf)
-                TM <- MASS::ginv(crossprod(Tm)) %*% t(Tm)
-                WkM <- MASS::ginv(crossprod(WsupraK)) %*% t(WsupraK)
-                WjM <- MASS::ginv(crossprod(WsupraJ)) %*% t(WsupraJ)
-                Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
-                # Xd <- Xd - Tm%*%Gu[[f]] %*% t(kronecker(WsupraK,WsupraJ))
-                P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK, WsupraJ)))
-                Y <- Y - Tm %*% bf %*% t(qf)
-                S <- svd(Y)$d
-                u <- Y[, S == max(S)]
-            } else {
-                u <- uf
-                it <- it + 1
-            }
+      }
+
+      ##########
+      wsuprak <- svd.z$v[, 1]
+      # L1 penalization for wsuprak
+      if(method == "sNPLS"){
+        if(cont_thresholding){
+          wsuprak <- rel_thresholding(wsuprak, threshold_k[f])
+        } else {
+          if (nk != 0) {
+            wsuprak <- thresholding(wsuprak, nk)
+          }
         }
+      }
+
+      if(method %in% c("sNPLS-VIP", "sNPLS-SR")){
+        W <- kronecker(wsuprak, wsupraj) *  kronecker(wselk, wselj)
+        tf <- Xd %*% W
+        qf <- crossprod(Y, tf)/mynorm(crossprod(Y, tf))
+        uf <- Y %*% qf
+        Tm[,f] <- tf
+        Q <- cbind(Q, qf)
+        WsupraJ[,f] <- wsupraj
+        WsupraK[,f] <- wsuprak
+      }
+
+      if(method == "sNPLS-VIP"){
+        #VIPj
+        SCE <- sum(sum(Tm[,1:f, drop=FALSE] %*% t(Q[,1:f, drop=FALSE])^2))
+        VIPj <- sqrt(nrow(WsupraJ)*((WsupraJ[,f, drop=FALSE]^2)*SCE)/sum(SCE))
+        VIPj_01 <- (VIPj-min(VIPj))/(max(VIPj)-min(VIPj))
+
+        #VIPk
+        SCE <- sum(sum(Tm[,1:f, drop=FALSE] %*% t(Q[,1:f, drop=FALSE])^2))
+        VIPk <- sqrt(nrow(WsupraK)*((WsupraK[,f, drop=FALSE]^2)*SCE)/sum(SCE))
+        VIPk_01 <- (VIPk-min(VIPk))/(max(VIPk)-min(VIPk))
+
+        wselk <- as.numeric(VIPk_01 > threshold_k[f])
+        wselj <- as.numeric(VIPj_01 > threshold_j[f])
+      }
+
+      if(method == "sNPLS-SR"){
+        TM <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE])
+        WkM <- MASS::ginv(crossprod(WsupraK[,1:f, drop=FALSE])) %*% t(WsupraK[,1:f, drop=FALSE])
+        WjM <- MASS::ginv(crossprod(WsupraJ[,1:f, drop=FALSE])) %*% t(WsupraJ[,1:f, drop=FALSE])
+        Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
+        #SR
+        P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK[,1:f, drop=FALSE], WsupraJ[,1:f, drop=FALSE])))
+        Xres <- Xd - Tm[,1:f, drop=FALSE] %*% t(P[[f]])
+        xpred <- Tm[,1:f, drop=FALSE] %*% t(P[[f]])
+        SSexp <- xpred^2
+        SSres <- (Xd-xpred)^2
+        SSexp_cube <- array(SSexp, dim=c(nrow(SSexp), nj, nk))
+        SSres_cube <- array(SSres, dim=c(nrow(SSexp), nj, nk))
+        SR_k <- numeric(nk)
+        for(k in 1:nk){
+          SR_k[k] <- sum(SSexp_cube[,,k])/sum(SSres_cube[,,k])
+        }
+        SR_k_01 <- (SR_k-min(SR_k))/(max(SR_k)-min(SR_k))
+        SR_j <- numeric(nj)
+        for(j in 1:nj){
+          SR_j[j] <- sum(SSexp_cube[,j,])/sum(SSres_cube[,j,])
+        }
+        SR_j_01 <- (SR_j-min(SR_j))/(max(SR_j)-min(SR_j))
+        wselj <- rep(1, nj)
+        wselk <- rep(1, nk)
+        PFcalck <- SR_k_01
+        wselk <- as.numeric(PFcalck > threshold_k[f])
+        PFcalcj <- SR_j_01
+        wselj <- as.numeric(PFcalcj > threshold_j[f])
+      }
+
+      ##########
+      if(method == "sNPLS"){
+        tf <- Xd %*% kronecker(wsuprak, wsupraj)
+        qf <- crossprod(Y, tf)/mynorm(crossprod(Y, tf))
+        uf <- Y %*% qf
+      }
+      if (sum((uf - u)^2) < conver) {
+        if (!silent) {
+          cat(paste("Component number ", f, "\n"))
+          cat(paste("Number of iterations: ", it, "\n"))
+        }
+        it <- max.iteration
+        if(method == "sNPLS"){
+          Tm <- cbind(Tm, tf)
+          WsupraJ <- cbind(WsupraJ, wsupraj)
+          WsupraK <- cbind(WsupraK, wsuprak)
+          bf <- MASS::ginv(crossprod(Tm)) %*% t(Tm) %*% uf
+          TM <- MASS::ginv(crossprod(Tm)) %*% t(Tm)
+          Q <- cbind(Q, qf)
+        } else {
+          Tm[,f] <- tf
+          WsupraJ[,f] <- wsupraj*wselj
+          WsupraK[,f] <- wsuprak*wselk
+          bf <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE]) %*% uf
+        }
+        B[1:length(bf), f] <- bf
+        U <- cbind(U, uf)
+        if(method == "sNPLS-VIP"){
+          TM <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE])
+          WkM <- MASS::ginv(crossprod(WsupraK[,1:f, drop=FALSE])) %*% t(WsupraK[,1:f, drop=FALSE])
+          WjM <- MASS::ginv(crossprod(WsupraJ[,1:f, drop=FALSE])) %*% t(WsupraJ[,1:f, drop=FALSE])
+          Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
+          P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK[,1:f, drop=FALSE], WsupraJ[,1:f, drop=FALSE])))
+        }
+        if(method == "sNPLS"){
+          TM <- MASS::ginv(crossprod(Tm)) %*% t(Tm)
+          WkM <- MASS::ginv(crossprod(WsupraK)) %*% t(WsupraK)
+          WjM <- MASS::ginv(crossprod(WsupraJ)) %*% t(WsupraJ)
+          Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
+          P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK, WsupraJ)))
+        }
+
+        if(method == "sNPLS"){
+          Y <- Y - Tm %*% bf %*% t(qf)
+        } else {
+          Y <- Y - Tm[,1:f, drop=FALSE] %*% bf %*% t(qf)
+        }
+        S <- svd(Y)$d
+        u <- Y[, S == max(S)]
+      } else {
+        u <- uf
+        it <- it + 1
+      }
     }
-    Yadjsc <- Tm %*% B %*% t(Q)
-    Yadj <- Yadjsc * y_scale + y_center
-    SqrdE <- sum((Yorig - Yadj)^2)
-    rownames(WsupraJ) <- var.names
-    rownames(WsupraK) <- x3d.names
-    rownames(Q) <- yvar.names
-    rownames(Tm) <- rownames(U) <- x.names
-    colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
-      colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
-    output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
-                   Gu = Gu, ncomp = ncomp, Xd=Xd, Yadj = Yadj, SqrdE = SqrdE,
-                   Standarization = list(ScaleX = x_scale, CenterX = x_center,
-                                         ScaleY = y_scale, CenterY = y_center),
-                   Method = "sNPLS")
-    class(output)<-"sNPLS"
-    return(output)
+  }
+  Yadjsc <- Tm %*% B %*% t(Q)
+  Yadj <- Yadjsc * y_scale + y_center
+  SqrdE <- sum((Yorig - Yadj)^2)
+  rownames(WsupraJ) <- var.names
+  rownames(WsupraK) <- x3d.names
+  rownames(Q) <- yvar.names
+  rownames(Tm) <- rownames(U) <- x.names
+  colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
+    colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
+  output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
+                 Gu = Gu, ncomp = ncomp, Xd=Xd, Yadj = Yadj, SqrdE = SqrdE,
+                 Standarization = list(ScaleX = x_scale, CenterX = x_center,
+                                       ScaleY = y_scale, CenterY = y_center),
+                 Method = method)
+  class(output)<-"sNPLS"
+  return(output)
 }
-
 
 #' R-matrix from a sNPLS model fit
 #'
@@ -296,18 +406,8 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
 #' @importFrom stats predict
 #' @export
 cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshold_k=NULL, keepJ=NULL, keepK=NULL,  method, ...) {
-  if(method == "sNPLS"){
-    fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ=keepJ, keepK=keepK, threshold_j = threshold_j,
-                 threshold_k = threshold_k, silent = TRUE, ...)
-  }
-  if(method == "sNPLS-SR"){
-    fit <- sNPLS_SR(XN = xtrain, Y = ytrain, ncomp = ncomp, threshold_j = threshold_j,
-                 threshold_k = threshold_k, silent = TRUE, ...)
-  }
-  if(method == "sNPLS-VIP"){
-    fit <- sNPLS_VIP(XN = xtrain, Y = ytrain, ncomp = ncomp, threshold_j = threshold_j,
-                 threshold_k = threshold_k, silent = TRUE, ...)
-  }
+  fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ=keepJ, keepK=keepK, threshold_j = threshold_j,
+                 threshold_k = threshold_k, silent = TRUE, method=method, ...)
   Y_pred <- predict(fit, xval)
   CVE <- sqrt(mean((Y_pred - yval)^2))
   return(CVE)
@@ -672,318 +772,4 @@ SR <- function(model){
   rownames(SR_k) <- rownames(model$Wk)
   colnames(SR_j) <- colnames(SR_k) <- paste("Component ", 1:model$ncomp, sep="")
   list(SR_j=SR_j, SR_k=SR_k)
-}
-
-#' Fit a sNPLS model with embedded SR variable selection
-#'
-#' @description Fits a N-PLS regression model with embedded variable selection using the Selectivity Ratio
-#' @param XN A three-way array containing the predictors.
-#' @param Y A matrix containing the response.
-#' @param ncomp Number of components in the projection
-#' @param threshold_j Threshold value for the SR on Wj (scaled between 0-1)
-#' @param threshold_k Threshold value for the SR on Wk (scaled between 0-1)
-#' @param scale.X Perform unit variance scaling on X?
-#' @param center.X Perform mean centering on X?
-#' @param scale.Y Perform unit variance scaling on Y?
-#' @param center.Y Perform mean centering on Y?
-#' @param conver Convergence criterion
-#' @param max.iteration Maximum number of iterations
-#' @param silent Show output?
-#' @return A fitted sNPLS-SR model
-#' @references C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
-#' @references Shen, H. and Huang, J. Z. (2008). Sparse principal component analysis via regularized low rank matrix approximation. Journal of Multivariate Analysis 99, 1015-1034
-#' @examples
-#' X_npls<-array(rpois(7500, 10), dim=c(50, 50, 3))
-#'
-#' Y_npls<-matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
-#' 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
-#'
-#' fit<-sNPLS_SR(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5)
-#' @importFrom stats sd
-#' @export
-sNPLS_SR <- function(XN, Y, ncomp = 2, threshold_j=1, threshold_k=0.1, scale.X=TRUE, center.X=TRUE,
-                     scale.Y=TRUE, center.Y=TRUE, conver = 1e-16, max.iteration = 10000, silent = F) {
-
-  mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
-  if (length(dim(Y)) == 3) Y <- unfold3w(Y)
-  if (length(dim(XN)) != 3)
-    stop("'XN' is not a three-way array")
-  if (!is.null(rownames(XN)))
-    y.names <- x.names <- rownames(XN) else y.names <- x.names <- 1:dim(XN)[1]
-    if (!is.null(colnames(XN)))
-      var.names <- colnames(XN) else var.names <- paste("X.", 1:dim(XN)[2], sep = "")
-      if (!is.null(dimnames(XN)[[3]]))
-        x3d.names <- dimnames(XN)[[3]] else x3d.names <- paste("Z.", 1:dim(XN)[3], sep = "")
-        if (!is.null(colnames(Y)))
-          yvar.names <- colnames(Y) else yvar.names <- paste("Y.", 1:dim(Y)[2], sep = "")
-          if(!center.X) center.X <- rep(0, ncol(XN)*dim(XN)[3])
-          if(!center.Y) center.Y <- rep(0, ncol(Y))
-          if(!scale.X) scale.X <- rep(1, ncol(XN)*dim(XN)[3])
-          if(!scale.Y) scale.Y <- rep(1, ncol(Y))
-
-          # Matrices initialization
-          U <- Q <- X <- P <- NULL
-          WsupraJ <- matrix(nrow=ncol(XN), ncol=ncomp)
-          WsupraK <- matrix(nrow=dim(XN)[3], ncol=ncomp)
-          Tm <- matrix(nrow=nrow(XN), ncol=ncomp)
-          Yorig <- Y
-          Y <- scale(Y, center = center.Y, scale = scale.Y)
-          y_center <- attr(Y, "scaled:center")
-          y_scale <- attr(Y, "scaled:scale")
-          B <- matrix(0, ncol = ncomp, nrow = ncomp)
-          Gu <- vector("list", ncomp)
-          S <- svd(Y)$d
-          u <- Y[, S == max(S)]  #Column with the highest variance
-          # Unfolding of XN en 2-D
-          X <- unfold3w(XN)
-          #Check for zero variance columns and fix them with some noise
-          if(any(apply(X, 2, sd)==0)){
-            X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
-          }
-          # Center and scale
-          Xd <- scale(X, center = center.X, scale = scale.X)
-          x_center <- attr(Xd, "scaled:center")
-          x_scale <- attr(Xd, "scaled:scale")
-
-          # Main loop for each component
-          for (f in 1:ncomp) {
-            nj <- ncol(XN)
-            nk <- dim(XN)[3]
-            wselj <- rep(1, nj)
-            wselk <- rep(1, nk)
-            it = 1
-            while (it < max.iteration) {
-              Zrow <- crossprod(u, Xd)
-              Z <- matrix(Zrow, nrow = dim(XN)[2], ncol = dim(XN)[3])
-              svd.z <- svd(Z)
-              wsupraj <- svd.z$u[, 1]
-              ##########
-              wsuprak <- svd.z$v[, 1]
-              ##########
-              W <- kronecker(wsuprak, wsupraj) *  kronecker(wselk, wselj)
-              tf <- Xd %*% W
-              qf <- crossprod(Y, tf)/mynorm(crossprod(Y, tf))
-              uf <- Y %*% qf
-              Tm[,f] <- tf
-              Q <- cbind(Q, qf)
-              WsupraJ[,f] <- wsupraj
-              WsupraK[,f] <- wsuprak
-              TM <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE])
-              WkM <- MASS::ginv(crossprod(WsupraK[,1:f, drop=FALSE])) %*% t(WsupraK[,1:f, drop=FALSE])
-              WjM <- MASS::ginv(crossprod(WsupraJ[,1:f, drop=FALSE])) %*% t(WsupraJ[,1:f, drop=FALSE])
-              Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
-              #SR
-              P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK[,1:f, drop=FALSE], WsupraJ[,1:f, drop=FALSE])))
-              Xres <- Xd - Tm[,1:f, drop=FALSE] %*% t(P[[f]])
-              xpred <- Tm[,1:f, drop=FALSE] %*% t(P[[f]])
-              SSexp <- xpred^2
-              SSres <- (Xd-xpred)^2
-              SSexp_cube <- array(SSexp, dim=c(nrow(SSexp), nj, nk))
-              SSres_cube <- array(SSres, dim=c(nrow(SSexp), nj, nk))
-              SR_k <- numeric(nk)
-              for(k in 1:nk){
-                SR_k[k] <- sum(SSexp_cube[,,k])/sum(SSres_cube[,,k])
-              }
-              SR_k_01 <- (SR_k-min(SR_k))/(max(SR_k)-min(SR_k))
-              SR_j <- numeric(nj)
-              for(j in 1:nj){
-                SR_j[j] <- sum(SSexp_cube[,j,])/sum(SSres_cube[,j,])
-              }
-              SR_j_01 <- (SR_j-min(SR_j))/(max(SR_j)-min(SR_j))
-              wselj <- rep(1, nj)
-              wselk <- rep(1, nk)
-              PFcalck <- SR_k_01
-              wselk <- as.numeric(PFcalck > threshold_k)
-              PFcalcj <- SR_j_01
-              wselj <- as.numeric(PFcalcj > threshold_j)
-              if (sum((uf - u)^2) < conver) {
-                if (!silent) {
-                  cat(paste("Component number ", f, "\n"))
-                  cat(paste("Number of iterations: ", it, "\n"))
-                }
-                it <- max.iteration
-                Tm[,f] <- tf
-                WsupraJ[,f] <- wsupraj*wselj
-                WsupraK[,f] <- wsuprak*wselk
-                bf <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE]) %*% uf
-                B[1:length(bf), f] <- bf
-                U <- cbind(U, uf)
-                Y <- Y - Tm[,1:f, drop=FALSE] %*% bf %*% t(qf)
-                S <- svd(Y)$d
-                u <- Y[, S == max(S)]
-              } else {
-                u <- uf
-                it <- it + 1
-              }
-            }
-          }
-          Yadjsc <- Tm %*% B %*% t(Q)
-          Yadj <- Yadjsc * y_scale + y_center
-          SqrdE <- sum((Yorig - Yadj)^2)
-          rownames(WsupraJ) <- var.names
-          rownames(WsupraK) <- x3d.names
-          rownames(Q) <- yvar.names
-          rownames(Tm) <- rownames(U) <- x.names
-          colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
-            colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
-          output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
-                         Gu = Gu, ncomp = ncomp, Yadj = Yadj, SqrdE = SqrdE,
-                         Standarization = list(ScaleX = x_scale, CenterX = x_center,
-                                               ScaleY = y_scale, CenterY = y_center),
-                         Method = "sNPLS-SR")
-          class(output)<-"sNPLS"
-          return(output)
-}
-
-
-#' Fit a sNPLS model with embedded VIP variable selection
-#'
-#' @description Fits a N-PLS regression model with embedded variable selection using the VIP score
-#' @param XN A three-way array containing the predictors.
-#' @param Y A matrix containing the response.
-#' @param ncomp Number of components in the projection
-#' @param threshold_j Threshold value for the VIP score on Wj (scaled between 0-1)
-#' @param threshold_k Threshold value for the VIP score on Wk (scaled between 0-1)
-#' @param scale.X Perform unit variance scaling on X?
-#' @param center.X Perform mean centering on X?
-#' @param scale.Y Perform unit variance scaling on Y?
-#' @param center.Y Perform mean centering on Y?
-#' @param conver Convergence criterion
-#' @param max.iteration Maximum number of iterations
-#' @param silent Show output?
-#' @return A fitted sNPLS-VIP model
-#' @references C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
-#' @references Shen, H. and Huang, J. Z. (2008). Sparse principal component analysis via regularized low rank matrix approximation. Journal of Multivariate Analysis 99, 1015-1034
-#' @examples
-#' X_npls<-array(rpois(7500, 10), dim=c(50, 50, 3))
-#'
-#' Y_npls<-matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
-#' 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
-#'
-#' fit<-sNPLS_VIP(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5)
-#' @importFrom stats sd
-#' @export
-sNPLS_VIP <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, scale.X=TRUE, center.X=TRUE,
-                      scale.Y=TRUE, center.Y=TRUE, conver = 1e-16, max.iteration = 10000, silent = F) {
-
-  mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
-  if (length(dim(Y)) == 3) Y <- unfold3w(Y)
-  if (length(dim(XN)) != 3)
-    stop("'XN' is not a three-way array")
-  if (!is.null(rownames(XN)))
-    y.names <- x.names <- rownames(XN) else y.names <- x.names <- 1:dim(XN)[1]
-    if (!is.null(colnames(XN)))
-      var.names <- colnames(XN) else var.names <- paste("X.", 1:dim(XN)[2], sep = "")
-      if (!is.null(dimnames(XN)[[3]]))
-        x3d.names <- dimnames(XN)[[3]] else x3d.names <- paste("Z.", 1:dim(XN)[3], sep = "")
-        if (!is.null(colnames(Y)))
-          yvar.names <- colnames(Y) else yvar.names <- paste("Y.", 1:dim(Y)[2], sep = "")
-          if(!center.X) center.X <- rep(0, ncol(XN)*dim(XN)[3])
-          if(!center.Y) center.Y <- rep(0, ncol(Y))
-          if(!scale.X) scale.X <- rep(1, ncol(XN)*dim(XN)[3])
-          if(!scale.Y) scale.Y <- rep(1, ncol(Y))
-
-          # Matrices initialization
-          U <- Q <- X <- P <- NULL
-          WsupraJ <- matrix(nrow=ncol(XN), ncol=ncomp)
-          WsupraK <- matrix(nrow=dim(XN)[3], ncol=ncomp)
-          Tm <- matrix(nrow=nrow(XN), ncol=ncomp)
-          Yorig <- Y
-          Y <- scale(Y, center = center.Y, scale = scale.Y)
-          y_center <- attr(Y, "scaled:center")
-          y_scale <- attr(Y, "scaled:scale")
-          B <- matrix(0, ncol = ncomp, nrow = ncomp)
-          Gu <- vector("list", ncomp)
-          S <- svd(Y)$d
-          u <- Y[, S == max(S)]  #Column with the highest variance
-          # Unfolding of XN en 2-D
-          X <- unfold3w(XN)
-          #Check for zero variance columns and fix them with some noise
-          if(any(apply(X, 2, sd)==0)){
-            X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
-          }
-          # Center and scale
-          Xd <- scale(X, center = center.X, scale = scale.X)
-          x_center <- attr(Xd, "scaled:center")
-          x_scale <- attr(Xd, "scaled:scale")
-
-          # Main loop for each component
-          for (f in 1:ncomp) {
-            nj <- ncol(XN)
-            nk <- dim(XN)[3]
-            wselj <- rep(1, nj)
-            wselk <- rep(1, nk)
-            it = 1
-            while (it < max.iteration) {
-              Zrow <- crossprod(u, Xd)
-              Z <- matrix(Zrow, nrow = dim(XN)[2], ncol = dim(XN)[3])
-              svd.z <- svd(Z)
-              wsupraj <- svd.z$u[, 1]
-              ##########
-              wsuprak <- svd.z$v[, 1]
-              ##########
-              W <- kronecker(wsuprak, wsupraj) *  kronecker(wselk, wselj)
-              tf <- Xd %*% W
-              qf <- crossprod(Y, tf)/mynorm(crossprod(Y, tf))
-              uf <- Y %*% qf
-              Tm[,f] <- tf
-              Q <- cbind(Q, qf)
-              WsupraJ[,f] <- wsupraj
-              WsupraK[,f] <- wsuprak
-
-              #VIPj
-              SCE <- sum(sum(Tm[,1:f, drop=FALSE] %*% t(Q[,1:f, drop=FALSE])^2))
-              VIPj <- sqrt(nrow(WsupraJ)*((WsupraJ[,f, drop=FALSE]^2)*SCE)/sum(SCE))
-              VIPj_01 <- (VIPj-min(VIPj))/(max(VIPj)-min(VIPj))
-
-              #VIPk
-              SCE <- sum(sum(Tm[,1:f, drop=FALSE] %*% t(Q[,1:f, drop=FALSE])^2))
-              VIPk <- sqrt(nrow(WsupraK)*((WsupraK[,f, drop=FALSE]^2)*SCE)/sum(SCE))
-              VIPk_01 <- (VIPk-min(VIPk))/(max(VIPk)-min(VIPk))
-
-              wselk <- as.numeric(VIPk_01 > threshold_k)
-              wselj <- as.numeric(VIPj_01 > threshold_j)
-
-              if (sum((uf - u)^2) < conver) {
-                if (!silent) {
-                  cat(paste("Component number ", f, "\n"))
-                  cat(paste("Number of iterations: ", it, "\n"))
-                }
-                it <- max.iteration
-                Tm[,f] <- tf
-                WsupraJ[,f] <- wsupraj*wselj
-                WsupraK[,f] <- wsuprak*wselk
-                bf <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE]) %*% uf
-                B[1:length(bf), f] <- bf
-                U <- cbind(U, uf)
-                TM <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE])
-                WkM <- MASS::ginv(crossprod(WsupraK[,1:f, drop=FALSE])) %*% t(WsupraK[,1:f, drop=FALSE])
-                WjM <- MASS::ginv(crossprod(WsupraJ[,1:f, drop=FALSE])) %*% t(WsupraJ[,1:f, drop=FALSE])
-                Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
-                P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK[,1:f, drop=FALSE], WsupraJ[,1:f, drop=FALSE])))
-                Y <- Y - Tm[,1:f, drop=FALSE] %*% bf %*% t(qf)
-                S <- svd(Y)$d
-                u <- Y[, S == max(S)]
-              } else {
-                u <- uf
-                it <- it + 1
-              }
-            }
-          }
-          Yadjsc <- Tm %*% B %*% t(Q)
-          Yadj <- Yadjsc * y_scale + y_center
-          SqrdE <- sum((Yorig - Yadj)^2)
-          rownames(WsupraJ) <- var.names
-          rownames(WsupraK) <- x3d.names
-          rownames(Q) <- yvar.names
-          rownames(Tm) <- rownames(U) <- x.names
-          colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
-            colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
-          output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
-                         Gu = Gu, ncomp = ncomp, Yadj = Yadj, SqrdE = SqrdE,
-                         Standarization = list(ScaleX = x_scale, CenterX = x_center,
-                                               ScaleY = y_scale, CenterY = y_center),
-                         Method = "sNPLS-VIP")
-          class(output)<-"sNPLS"
-          return(output)
 }
