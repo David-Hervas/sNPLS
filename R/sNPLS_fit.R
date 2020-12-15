@@ -25,7 +25,7 @@
 #' 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
 #'
 #' fit<-sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
-#' @importFrom stats predict sd
+#' @importFrom stats sd
 #' @export
 sNPLS <- function(XN, Y, ncomp = 2, threshold_j = 0, threshold_k = 0,
                   keepJ = NULL, keepK = NULL,
@@ -161,7 +161,8 @@ sNPLS <- function(XN, Y, ncomp = 2, threshold_j = 0, threshold_k = 0,
     output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
                    Gu = Gu, ncomp = ncomp, Xd=Xd, Yadj = Yadj, SqrdE = SqrdE,
                    Standarization = list(ScaleX = x_scale, CenterX = x_center,
-                                         ScaleY = y_scale, CenterY = y_center))
+                                         ScaleY = y_scale, CenterY = y_center),
+                   Method = "sNPLS")
     class(output)<-"sNPLS"
     return(output)
 }
@@ -215,6 +216,7 @@ unfold3w <- function(x) {
 #' @param keepK A vector with the different number of selected 'times' to test for discrete thresholding
 #' @param nfold Number of folds for the cross-validation
 #' @param parallel Should the computations be performed in parallel?
+#' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
 #' @param ... Further arguments passed to sNPLS
 #' @return A list with the best parameters for the model and the CV error
 #' @examples
@@ -226,9 +228,10 @@ unfold3w <- function(x) {
 #'
 #' cv1<- cv_snpls(X_npls, Y_npls, ncomp=1:2, keepJ = 1:3, keepK = 1:2, parallel = FALSE)
 #' }
+#' @importFrom stats runif
 #' @export
 cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
-                     keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  ...) {
+                     keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  method="sNPLS", ...) {
 
   if(length(dim(Y_npls)) == 3) Y_npls <- unfold3w(Y_npls)
   top <- ceiling(dim(X_npls)[1]/nfold)
@@ -254,7 +257,7 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
                                       ytrain = Y_npls[x != foldid, , drop = FALSE],
                                       xval = X_npls[x == foldid, , ],
                                       yval = Y_npls[x == foldid, , drop = FALSE],
-                                      ncomp = y["ncomp"]),
+                                      ncomp = y["ncomp"], method=method),
                                  list(threshold_j=y["threshold_j"])[cont_thresholding],
                                  list(threshold_k=y["threshold_k"])[cont_thresholding],
                                  list(keepJ=rep(y["keepJ"], y["ncomp"]))[!cont_thresholding],
@@ -276,44 +279,6 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
   return(output)
 }
 
-#   function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls),
-#                      keepK = 1:dim(X_npls)[3], nfold = 10, parallel = TRUE, free_cores = 2, ...) {
-#     if (parallel & (parallel::detectCores()>1)) {
-#         cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
-#         parallel::clusterExport(cl, list(deparse(substitute(X_npls)),
-#                                          deparse(substitute(Y_npls))))
-#         parallel::clusterCall(cl, function() require(sNPLS))
-#     }
-#   if(length(dim(Y_npls)) == 3) Y_npls <- unfold3w(Y_npls)
-#   top <- ceiling(dim(X_npls)[1]/nfold)
-#     foldid <- sample(rep(1:nfold, top), dim(X_npls)[1], replace = F)
-#     search.grid <- expand.grid(list(ncomp = ncomp, keepJ = keepJ, keepK = keepK))
-#     SqrdE <- numeric()
-#     applied_fun <- function(y) {
-#         sapply(1:nfold, function(x) {
-#             tryCatch(cv_fit(xtrain = X_npls[x != foldid, , ],
-#                             ytrain = Y_npls[x != foldid, , drop = FALSE],
-#                             xval = X_npls[x == foldid, , ],
-#                             yval = Y_npls[x == foldid, , drop = FALSE],
-#                             ncomp = y["ncomp"],
-#                             keepJ = rep(y["keepJ"], y["ncomp"]),
-#                             keepK = rep(y["keepK"], y["ncomp"]), ...),
-#                      error=function(x) NA)
-#           })
-#     }
-#     if (parallel) {
-#         cv_res <- parallel::parApply(cl, search.grid, 1, applied_fun)
-#         parallel::stopCluster(cl)
-#     } else cv_res <- pbapply::pbapply(search.grid, 1, applied_fun)
-#     cv_mean <- apply(cv_res, 2, function(x) mean(x, na.rm = TRUE))
-#     cv_se <- apply(cv_res, 2, function(x) sd(x, na.rm=TRUE)/sqrt(nfold))
-#     best_model <- search.grid[which.min(cv_mean), ]
-#     output <- list(best_parameters = best_model, cv_mean = cv_mean,
-#                    cv_se = cv_se, cv_grid = search.grid)
-#     class(output)<-"cvsNPLS"
-#     return(output)
-# }
-
 #' Internal function for \code{cv_snpls}
 #'
 #' @param xtrain A three-way training array
@@ -325,24 +290,28 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
 #' @param threshold_k Threshold value for the L1 penalty on Wk (scaled between 0-1)
 #' @param keepJ Number of variables to keep for each component
 #' @param keepK Number of 'times' to keep for each component
+#' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
 #' @param ... Further arguments passed to sNPLS
 #' @return Returns the CV mean squared error
+#' @importFrom stats predict
 #' @export
-cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshold_k=NULL, keepJ=NULL, keepK=NULL,  ...) {
-  fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ=keepJ, keepK=keepK, threshold_j = threshold_j,
-               threshold_k = threshold_k, silent = TRUE, ...)
+cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshold_k=NULL, keepJ=NULL, keepK=NULL,  method, ...) {
+  if(method == "sNPLS"){
+    fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ=keepJ, keepK=keepK, threshold_j = threshold_j,
+                 threshold_k = threshold_k, silent = TRUE, ...)
+  }
+  if(method == "sNPLS-SR"){
+    fit <- sNPLS_SR(XN = xtrain, Y = ytrain, ncomp = ncomp, threshold_j = threshold_j,
+                 threshold_k = threshold_k, silent = TRUE, ...)
+  }
+  if(method == "sNPLS-VIP"){
+    fit <- sNPLS_VIP(XN = xtrain, Y = ytrain, ncomp = ncomp, threshold_j = threshold_j,
+                 threshold_k = threshold_k, silent = TRUE, ...)
+  }
   Y_pred <- predict(fit, xval)
   CVE <- sqrt(mean((Y_pred - yval)^2))
   return(CVE)
 }
-
-#   function(xtrain, ytrain, xval, yval, ncomp, keepJ, keepK, ...) {
-#   fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ = keepJ,
-#                keepK = keepK, silent = TRUE, ...)
-#   Y_pred <- predict(fit, xval)
-#   CVE <- sqrt(mean((Y_pred - yval)^2))
-#   return(CVE)
-# }
 
 #' Plots for sNPLS model fits
 #'
@@ -529,9 +498,8 @@ fitted.sNPLS <- function(object, ...){
 #'
 #' @description Plot function for visualization of cross validation results for sNPLS models
 #' @param x A cv_sNPLS object
-#' @param facets Chose between a facet plot or a 3-D scatter plot
-#' @param ... Arguments passed to \code{car::scatter3d}
-#' @return A 3D scatter plot with the results of the cross validation
+#' @param ... Not used
+#' @return A facet plot with the results of the cross validation
 #' @export
 plot.cvsNPLS <- function(x, ...) {
   cont_thresholding <- names(x$cv_grid)[2] == "threshold_j"
@@ -545,19 +513,6 @@ plot.cvsNPLS <- function(x, ...) {
         ggplot2::theme_bw()
   }
 }
-
-#   function(x, facets=TRUE, ...) {
-#   df_grid <- data.frame(KeepJ=x$cv_grid$keepJ, KeepK=paste("KeepK =", x$cv_grid$keepK, sep=" "), CVE=x$cv_mean, Ncomp=paste("Ncomp =", x$cv_grid$ncomp, sep=" "))
-#   if(facets){
-#     ggplot2::ggplot(df_grid, ggplot2::aes_string(x="KeepJ", y="CVE"))+ggplot2::geom_line()+ggplot2::facet_grid(KeepK ~ Ncomp)+
-#       ggplot2::scale_x_continuous(breaks=if(round(diff(range(df_grid$KeepJ)))<=10) round(max(0, min(df_grid$KeepJ)):max(df_grid$KeepJ)) else round(seq(max(0, min(df_grid$KeepJ)), max(df_grid$KeepJ), by= ceiling(max(df_grid$KeepJ)/20)*2)))+
-#       ggplot2::theme_bw()
-#   } else{
-#     car::scatter3d(x$cv_grid$keepJ, x$cv_mean, x$cv_grid$keepK, groups = if (length(unique(x$cv_grid$ncomp)) > 1) factor(x$cv_grid$ncomp) else NULL,
-#                    surface = TRUE, fit = "smooth", axis.col = c("black", "black", "black"), xlab = "KeepJ", ylab = "CVE", zlab = "KeepK", parallel = FALSE, ...)
-#     rgl::grid3d(c("x", "y", "z"), col = "gray", lwd = 1, lty = 1, n = 5)
-#   }
-# }
 
 #' Coefficients from a sNPLS model
 #'
@@ -591,11 +546,12 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param nfold Number of folds for the cross-validation
 #' @param times Number of repetitions of the cross-validation
 #' @param parallel Should the computations be performed in parallel?
+#' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
 #' @param ... Further arguments passed to cv_snpls
 #' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
 #' @importFrom stats var
 #' @export
-repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, ...){
+repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, method="sNPLS", ...){
   if(is.null(keepJ) | is.null(keepK)){
     cont_thresholding <- TRUE
     message("Using continuous thresholding")
@@ -604,9 +560,9 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
     message("Using discrete thresholding")
   }
   if(parallel){
-    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, ...)))
+    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, ...)))
   } else {
-    rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, ...)))
+    rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, ...)))
   }
   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), threshold_j=sapply(rep_cv[1,], function(x) x[[2]]),
                       threshold_k=sapply(rep_cv[1,], function(x) x[[3]]))
@@ -615,23 +571,6 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
   return(resdata)
 }
 
-#   function(X_npls, Y_npls, ncomp = 1:3, keepJ = 1:ncol(X_npls), keepK = 1:dim(X_npls)[3],
-#                     nfold = 10, parallel = TRUE, free_cores = 2, times=30, ...){
-#   if(parallel & (parallel::detectCores()>1)){
-#     cl <- parallel::makeCluster(max(2, parallel::detectCores() - free_cores))
-#     parallel::clusterExport(cl, list(deparse(substitute(X_npls)), deparse(substitute(Y_npls))))
-#     parallel::clusterCall(cl, function() require(sNPLS))
-#     rep_cv<-parallel::parSapply(cl, 1:times, function(x) cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
-#     parallel::stopCluster(cl)
-#   } else {
-#     rep_cv<-pbapply::pbreplicate(times, cv_snpls(X_npls, Y_npls, ncomp=ncomp, keepJ = keepJ, keepK = keepK, parallel = FALSE, nfold = nfold, ...))
-#   }
-#   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), keepJ=sapply(rep_cv[1,], function(x) x[[2]]),
-#                       keepK=sapply(rep_cv[1,], function(x) x[[3]]))
-#   class(resdata)<-c("repeatcv", "data.frame")
-#   return(resdata)
-# }
-
 #' Density plot for repeat_cv results
 #'
 #' @description Plots a grid of slices from the 3-D kernel denity estimates of the repeat_cv function
@@ -639,7 +578,7 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
 #' @param ... Further arguments passed to plot
 #' @return A grid of slices from of a 3-D density plot of the results of the repeated cross-validation
 #' @importFrom grDevices colorRampPalette
-#' @importFrom stats ftable
+#' @importFrom stats ftable density setNames
 #' @export
 plot.repeatcv <- function(x, ...){
   x.old <- x
@@ -694,7 +633,6 @@ plot.repeatcv <- function(x, ...){
   data.frame(x.old[1, !colnames(x.old) %in% colnames(x), drop=FALSE], df_grid[which.max(df_grid$density),])
 }
 
-
 #' Summary for sNPLS models
 #'
 #' @description Summary of a sNPLS model fit
@@ -734,4 +672,318 @@ SR <- function(model){
   rownames(SR_k) <- rownames(model$Wk)
   colnames(SR_j) <- colnames(SR_k) <- paste("Component ", 1:model$ncomp, sep="")
   list(SR_j=SR_j, SR_k=SR_k)
+}
+
+#' Fit a sNPLS model with embedded SR variable selection
+#'
+#' @description Fits a N-PLS regression model with embedded variable selection using the Selectivity Ratio
+#' @param XN A three-way array containing the predictors.
+#' @param Y A matrix containing the response.
+#' @param ncomp Number of components in the projection
+#' @param threshold_j Threshold value for the SR on Wj (scaled between 0-1)
+#' @param threshold_k Threshold value for the SR on Wk (scaled between 0-1)
+#' @param scale.X Perform unit variance scaling on X?
+#' @param center.X Perform mean centering on X?
+#' @param scale.Y Perform unit variance scaling on Y?
+#' @param center.Y Perform mean centering on Y?
+#' @param conver Convergence criterion
+#' @param max.iteration Maximum number of iterations
+#' @param silent Show output?
+#' @return A fitted sNPLS-SR model
+#' @references C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
+#' @references Shen, H. and Huang, J. Z. (2008). Sparse principal component analysis via regularized low rank matrix approximation. Journal of Multivariate Analysis 99, 1015-1034
+#' @examples
+#' X_npls<-array(rpois(7500, 10), dim=c(50, 50, 3))
+#'
+#' Y_npls<-matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
+#' 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
+#'
+#' fit<-sNPLS_SR(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5)
+#' @importFrom stats sd
+#' @export
+sNPLS_SR <- function(XN, Y, ncomp = 2, threshold_j=1, threshold_k=0.1, scale.X=TRUE, center.X=TRUE,
+                     scale.Y=TRUE, center.Y=TRUE, conver = 1e-16, max.iteration = 10000, silent = F) {
+
+  mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
+  if (length(dim(Y)) == 3) Y <- unfold3w(Y)
+  if (length(dim(XN)) != 3)
+    stop("'XN' is not a three-way array")
+  if (!is.null(rownames(XN)))
+    y.names <- x.names <- rownames(XN) else y.names <- x.names <- 1:dim(XN)[1]
+    if (!is.null(colnames(XN)))
+      var.names <- colnames(XN) else var.names <- paste("X.", 1:dim(XN)[2], sep = "")
+      if (!is.null(dimnames(XN)[[3]]))
+        x3d.names <- dimnames(XN)[[3]] else x3d.names <- paste("Z.", 1:dim(XN)[3], sep = "")
+        if (!is.null(colnames(Y)))
+          yvar.names <- colnames(Y) else yvar.names <- paste("Y.", 1:dim(Y)[2], sep = "")
+          if(!center.X) center.X <- rep(0, ncol(XN)*dim(XN)[3])
+          if(!center.Y) center.Y <- rep(0, ncol(Y))
+          if(!scale.X) scale.X <- rep(1, ncol(XN)*dim(XN)[3])
+          if(!scale.Y) scale.Y <- rep(1, ncol(Y))
+
+          # Matrices initialization
+          U <- Q <- X <- P <- NULL
+          WsupraJ <- matrix(nrow=ncol(XN), ncol=ncomp)
+          WsupraK <- matrix(nrow=dim(XN)[3], ncol=ncomp)
+          Tm <- matrix(nrow=nrow(XN), ncol=ncomp)
+          Yorig <- Y
+          Y <- scale(Y, center = center.Y, scale = scale.Y)
+          y_center <- attr(Y, "scaled:center")
+          y_scale <- attr(Y, "scaled:scale")
+          B <- matrix(0, ncol = ncomp, nrow = ncomp)
+          Gu <- vector("list", ncomp)
+          S <- svd(Y)$d
+          u <- Y[, S == max(S)]  #Column with the highest variance
+          # Unfolding of XN en 2-D
+          X <- unfold3w(XN)
+          #Check for zero variance columns and fix them with some noise
+          if(any(apply(X, 2, sd)==0)){
+            X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
+          }
+          # Center and scale
+          Xd <- scale(X, center = center.X, scale = scale.X)
+          x_center <- attr(Xd, "scaled:center")
+          x_scale <- attr(Xd, "scaled:scale")
+
+          # Main loop for each component
+          for (f in 1:ncomp) {
+            nj <- ncol(XN)
+            nk <- dim(XN)[3]
+            wselj <- rep(1, nj)
+            wselk <- rep(1, nk)
+            it = 1
+            while (it < max.iteration) {
+              Zrow <- crossprod(u, Xd)
+              Z <- matrix(Zrow, nrow = dim(XN)[2], ncol = dim(XN)[3])
+              svd.z <- svd(Z)
+              wsupraj <- svd.z$u[, 1]
+              ##########
+              wsuprak <- svd.z$v[, 1]
+              ##########
+              W <- kronecker(wsuprak, wsupraj) *  kronecker(wselk, wselj)
+              tf <- Xd %*% W
+              qf <- crossprod(Y, tf)/mynorm(crossprod(Y, tf))
+              uf <- Y %*% qf
+              Tm[,f] <- tf
+              Q <- cbind(Q, qf)
+              WsupraJ[,f] <- wsupraj
+              WsupraK[,f] <- wsuprak
+              TM <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE])
+              WkM <- MASS::ginv(crossprod(WsupraK[,1:f, drop=FALSE])) %*% t(WsupraK[,1:f, drop=FALSE])
+              WjM <- MASS::ginv(crossprod(WsupraJ[,1:f, drop=FALSE])) %*% t(WsupraJ[,1:f, drop=FALSE])
+              Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
+              #SR
+              P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK[,1:f, drop=FALSE], WsupraJ[,1:f, drop=FALSE])))
+              Xres <- Xd - Tm[,1:f, drop=FALSE] %*% t(P[[f]])
+              xpred <- Tm[,1:f, drop=FALSE] %*% t(P[[f]])
+              SSexp <- xpred^2
+              SSres <- (Xd-xpred)^2
+              SSexp_cube <- array(SSexp, dim=c(nrow(SSexp), nj, nk))
+              SSres_cube <- array(SSres, dim=c(nrow(SSexp), nj, nk))
+              SR_k <- numeric(nk)
+              for(k in 1:nk){
+                SR_k[k] <- sum(SSexp_cube[,,k])/sum(SSres_cube[,,k])
+              }
+              SR_k_01 <- (SR_k-min(SR_k))/(max(SR_k)-min(SR_k))
+              SR_j <- numeric(nj)
+              for(j in 1:nj){
+                SR_j[j] <- sum(SSexp_cube[,j,])/sum(SSres_cube[,j,])
+              }
+              SR_j_01 <- (SR_j-min(SR_j))/(max(SR_j)-min(SR_j))
+              wselj <- rep(1, nj)
+              wselk <- rep(1, nk)
+              PFcalck <- SR_k_01
+              wselk <- as.numeric(PFcalck > threshold_k)
+              PFcalcj <- SR_j_01
+              wselj <- as.numeric(PFcalcj > threshold_j)
+              if (sum((uf - u)^2) < conver) {
+                if (!silent) {
+                  cat(paste("Component number ", f, "\n"))
+                  cat(paste("Number of iterations: ", it, "\n"))
+                }
+                it <- max.iteration
+                Tm[,f] <- tf
+                WsupraJ[,f] <- wsupraj*wselj
+                WsupraK[,f] <- wsuprak*wselk
+                bf <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE]) %*% uf
+                B[1:length(bf), f] <- bf
+                U <- cbind(U, uf)
+                Y <- Y - Tm[,1:f, drop=FALSE] %*% bf %*% t(qf)
+                S <- svd(Y)$d
+                u <- Y[, S == max(S)]
+              } else {
+                u <- uf
+                it <- it + 1
+              }
+            }
+          }
+          Yadjsc <- Tm %*% B %*% t(Q)
+          Yadj <- Yadjsc * y_scale + y_center
+          SqrdE <- sum((Yorig - Yadj)^2)
+          rownames(WsupraJ) <- var.names
+          rownames(WsupraK) <- x3d.names
+          rownames(Q) <- yvar.names
+          rownames(Tm) <- rownames(U) <- x.names
+          colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
+            colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
+          output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
+                         Gu = Gu, ncomp = ncomp, Yadj = Yadj, SqrdE = SqrdE,
+                         Standarization = list(ScaleX = x_scale, CenterX = x_center,
+                                               ScaleY = y_scale, CenterY = y_center),
+                         Method = "sNPLS-SR")
+          class(output)<-"sNPLS"
+          return(output)
+}
+
+
+#' Fit a sNPLS model with embedded VIP variable selection
+#'
+#' @description Fits a N-PLS regression model with embedded variable selection using the VIP score
+#' @param XN A three-way array containing the predictors.
+#' @param Y A matrix containing the response.
+#' @param ncomp Number of components in the projection
+#' @param threshold_j Threshold value for the VIP score on Wj (scaled between 0-1)
+#' @param threshold_k Threshold value for the VIP score on Wk (scaled between 0-1)
+#' @param scale.X Perform unit variance scaling on X?
+#' @param center.X Perform mean centering on X?
+#' @param scale.Y Perform unit variance scaling on Y?
+#' @param center.Y Perform mean centering on Y?
+#' @param conver Convergence criterion
+#' @param max.iteration Maximum number of iterations
+#' @param silent Show output?
+#' @return A fitted sNPLS-VIP model
+#' @references C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.
+#' @references Shen, H. and Huang, J. Z. (2008). Sparse principal component analysis via regularized low rank matrix approximation. Journal of Multivariate Analysis 99, 1015-1034
+#' @examples
+#' X_npls<-array(rpois(7500, 10), dim=c(50, 50, 3))
+#'
+#' Y_npls<-matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
+#' 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
+#'
+#' fit<-sNPLS_VIP(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5)
+#' @importFrom stats sd
+#' @export
+sNPLS_VIP <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, scale.X=TRUE, center.X=TRUE,
+                      scale.Y=TRUE, center.Y=TRUE, conver = 1e-16, max.iteration = 10000, silent = F) {
+
+  mynorm <- function(x) sqrt(sum(diag(crossprod(x))))
+  if (length(dim(Y)) == 3) Y <- unfold3w(Y)
+  if (length(dim(XN)) != 3)
+    stop("'XN' is not a three-way array")
+  if (!is.null(rownames(XN)))
+    y.names <- x.names <- rownames(XN) else y.names <- x.names <- 1:dim(XN)[1]
+    if (!is.null(colnames(XN)))
+      var.names <- colnames(XN) else var.names <- paste("X.", 1:dim(XN)[2], sep = "")
+      if (!is.null(dimnames(XN)[[3]]))
+        x3d.names <- dimnames(XN)[[3]] else x3d.names <- paste("Z.", 1:dim(XN)[3], sep = "")
+        if (!is.null(colnames(Y)))
+          yvar.names <- colnames(Y) else yvar.names <- paste("Y.", 1:dim(Y)[2], sep = "")
+          if(!center.X) center.X <- rep(0, ncol(XN)*dim(XN)[3])
+          if(!center.Y) center.Y <- rep(0, ncol(Y))
+          if(!scale.X) scale.X <- rep(1, ncol(XN)*dim(XN)[3])
+          if(!scale.Y) scale.Y <- rep(1, ncol(Y))
+
+          # Matrices initialization
+          U <- Q <- X <- P <- NULL
+          WsupraJ <- matrix(nrow=ncol(XN), ncol=ncomp)
+          WsupraK <- matrix(nrow=dim(XN)[3], ncol=ncomp)
+          Tm <- matrix(nrow=nrow(XN), ncol=ncomp)
+          Yorig <- Y
+          Y <- scale(Y, center = center.Y, scale = scale.Y)
+          y_center <- attr(Y, "scaled:center")
+          y_scale <- attr(Y, "scaled:scale")
+          B <- matrix(0, ncol = ncomp, nrow = ncomp)
+          Gu <- vector("list", ncomp)
+          S <- svd(Y)$d
+          u <- Y[, S == max(S)]  #Column with the highest variance
+          # Unfolding of XN en 2-D
+          X <- unfold3w(XN)
+          #Check for zero variance columns and fix them with some noise
+          if(any(apply(X, 2, sd)==0)){
+            X[,apply(X, 2, sd)==0] <- apply(X[,apply(X, 2, sd)==0, drop=FALSE], 2, function(x) jitter(x))
+          }
+          # Center and scale
+          Xd <- scale(X, center = center.X, scale = scale.X)
+          x_center <- attr(Xd, "scaled:center")
+          x_scale <- attr(Xd, "scaled:scale")
+
+          # Main loop for each component
+          for (f in 1:ncomp) {
+            nj <- ncol(XN)
+            nk <- dim(XN)[3]
+            wselj <- rep(1, nj)
+            wselk <- rep(1, nk)
+            it = 1
+            while (it < max.iteration) {
+              Zrow <- crossprod(u, Xd)
+              Z <- matrix(Zrow, nrow = dim(XN)[2], ncol = dim(XN)[3])
+              svd.z <- svd(Z)
+              wsupraj <- svd.z$u[, 1]
+              ##########
+              wsuprak <- svd.z$v[, 1]
+              ##########
+              W <- kronecker(wsuprak, wsupraj) *  kronecker(wselk, wselj)
+              tf <- Xd %*% W
+              qf <- crossprod(Y, tf)/mynorm(crossprod(Y, tf))
+              uf <- Y %*% qf
+              Tm[,f] <- tf
+              Q <- cbind(Q, qf)
+              WsupraJ[,f] <- wsupraj
+              WsupraK[,f] <- wsuprak
+
+              #VIPj
+              SCE <- sum(sum(Tm[,1:f, drop=FALSE] %*% t(Q[,1:f, drop=FALSE])^2))
+              VIPj <- sqrt(nrow(WsupraJ)*((WsupraJ[,f, drop=FALSE]^2)*SCE)/sum(SCE))
+              VIPj_01 <- (VIPj-min(VIPj))/(max(VIPj)-min(VIPj))
+
+              #VIPk
+              SCE <- sum(sum(Tm[,1:f, drop=FALSE] %*% t(Q[,1:f, drop=FALSE])^2))
+              VIPk <- sqrt(nrow(WsupraK)*((WsupraK[,f, drop=FALSE]^2)*SCE)/sum(SCE))
+              VIPk_01 <- (VIPk-min(VIPk))/(max(VIPk)-min(VIPk))
+
+              wselk <- as.numeric(VIPk_01 > threshold_k)
+              wselj <- as.numeric(VIPj_01 > threshold_j)
+
+              if (sum((uf - u)^2) < conver) {
+                if (!silent) {
+                  cat(paste("Component number ", f, "\n"))
+                  cat(paste("Number of iterations: ", it, "\n"))
+                }
+                it <- max.iteration
+                Tm[,f] <- tf
+                WsupraJ[,f] <- wsupraj*wselj
+                WsupraK[,f] <- wsuprak*wselk
+                bf <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE]) %*% uf
+                B[1:length(bf), f] <- bf
+                U <- cbind(U, uf)
+                TM <- MASS::ginv(crossprod(Tm[,1:f, drop=FALSE])) %*% t(Tm[,1:f, drop=FALSE])
+                WkM <- MASS::ginv(crossprod(WsupraK[,1:f, drop=FALSE])) %*% t(WsupraK[,1:f, drop=FALSE])
+                WjM <- MASS::ginv(crossprod(WsupraJ[,1:f, drop=FALSE])) %*% t(WsupraJ[,1:f, drop=FALSE])
+                Gu[[f]] <- TM %*% X %*% kronecker(t(WkM), t(WjM))
+                P[[f]] = t(as.matrix(Gu[[f]]) %*% t(kronecker(WsupraK[,1:f, drop=FALSE], WsupraJ[,1:f, drop=FALSE])))
+                Y <- Y - Tm[,1:f, drop=FALSE] %*% bf %*% t(qf)
+                S <- svd(Y)$d
+                u <- Y[, S == max(S)]
+              } else {
+                u <- uf
+                it <- it + 1
+              }
+            }
+          }
+          Yadjsc <- Tm %*% B %*% t(Q)
+          Yadj <- Yadjsc * y_scale + y_center
+          SqrdE <- sum((Yorig - Yadj)^2)
+          rownames(WsupraJ) <- var.names
+          rownames(WsupraK) <- x3d.names
+          rownames(Q) <- yvar.names
+          rownames(Tm) <- rownames(U) <- x.names
+          colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
+            colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
+          output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
+                         Gu = Gu, ncomp = ncomp, Yadj = Yadj, SqrdE = SqrdE,
+                         Standarization = list(ScaleX = x_scale, CenterX = x_center,
+                                               ScaleY = y_scale, CenterY = y_center),
+                         Method = "sNPLS-VIP")
+          class(output)<-"sNPLS"
+          return(output)
 }

@@ -14,6 +14,7 @@ repeat_cv(
   nfold = 10,
   times = 30,
   parallel = TRUE,
+  method = "sNPLS",
   ...
 )
 }
@@ -35,6 +36,8 @@ repeat_cv(
 \item{times}{Number of repetitions of the cross-validation}
 
 \item{parallel}{Should the computations be performed in parallel?}
+
+\item{method}{Select between sNPLS, sNPLS-SR or sNPLS-VIP}
 
 \item{...}{Further arguments passed to cv_snpls}
 }

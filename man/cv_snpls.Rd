@@ -13,6 +13,7 @@ cv_snpls(
   keepK = NULL,
   nfold = 10,
   parallel = TRUE,
+  method = "sNPLS",
   ...
 )
 }
@@ -32,6 +33,8 @@ cv_snpls(
 \item{nfold}{Number of folds for the cross-validation}
 
 \item{parallel}{Should the computations be performed in parallel?}
+
+\item{method}{Select between sNPLS, sNPLS-SR or sNPLS-VIP}
 
 \item{...}{Further arguments passed to sNPLS}
 }

@@ -9,12 +9,10 @@
 \arguments{
 \item{x}{A cv_sNPLS object}
 
-\item{...}{Arguments passed to \code{car::scatter3d}}
-
-\item{facets}{Chose between a facet plot or a 3-D scatter plot}
+\item{...}{Not used}
 }
 \value{
-A 3D scatter plot with the results of the cross validation
+A facet plot with the results of the cross validation
 }
 \description{
 Plot function for visualization of cross validation results for sNPLS models

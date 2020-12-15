@@ -14,6 +14,7 @@ cv_fit(
   threshold_k = NULL,
   keepJ = NULL,
   keepK = NULL,
+  method,
   ...
 )
 }
@@ -35,6 +36,8 @@ cv_fit(
 \item{keepJ}{Number of variables to keep for each component}
 
 \item{keepK}{Number of 'times' to keep for each component}
+
+\item{method}{Select between sNPLS, sNPLS-SR or sNPLS-VIP}
 
 \item{...}{Further arguments passed to sNPLS}
 }
