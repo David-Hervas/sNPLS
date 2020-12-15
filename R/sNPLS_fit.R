@@ -40,6 +40,7 @@ sNPLS <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, keepJ = NU
   rel_thresholding <- function(x, j_rel){
     ifelse(abs(x)-max(abs(x))*j_rel <= 0, 0, sign(x)*(abs(x)-max(abs(x))*j_rel))
   }
+  if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
   if (length(dim(Y)) == 3) Y <- unfold3w(Y)
   if (length(dim(XN)) != 3) stop("'XN' is not a three-way array")
   if (!is.null(rownames(XN))){
