@@ -2,7 +2,7 @@
 % Please edit documentation in R/sNPLS_fit.R
 \name{plot.repeatcv}
 \alias{plot.repeatcv}
-\title{Density plot for repat_cv results}
+\title{Density plot for repeat_cv results}
 \usage{
 \method{plot}{repeatcv}(x, ...)
 }
