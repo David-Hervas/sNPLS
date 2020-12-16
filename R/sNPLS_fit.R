@@ -350,7 +350,7 @@ unfold3w <- function(x) {
 cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
                      keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  method="sNPLS", ...) {
 
-  if(parallel) cat("Your parallel configuration is ", attr(future::plan(), "class")[3])
+  if(parallel) message("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
   if(length(dim(Y_npls)) == 3) Y_npls <- unfold3w(Y_npls)
   top <- ceiling(dim(X_npls)[1]/nfold)
@@ -661,7 +661,7 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @export
 repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, method="sNPLS", ...){
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
-  if(parallel) cat("Your parallel configuration is ", attr(future::plan(), "class")[3])
+  if(parallel) message("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(is.null(keepJ) | is.null(keepK)){
     cont_thresholding <- TRUE
     message("Using continuous thresholding")
