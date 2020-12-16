@@ -11,11 +11,11 @@
 
 \item{type}{The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"}
 
-\item{comps}{A vector of length two with the components to plot}
+\item{comps}{Vector with the components to plot. It can be of length \code{ncomp} for types "time" and "variables" and of length 2 otherwise.}
 
 \item{labels}{Should rownames be added as labels to the plot?}
 
-\item{group}{Vector with categorical variable defining groups}
+\item{group}{Vector with categorical variable defining groups (optional)}
 
 \item{...}{Not used}
 }

@@ -12,7 +12,7 @@
 \item{...}{Further arguments passed to plot}
 }
 \value{
-A grid of slices from of a 3-D density plot of the results of the repeated cross-validation
+A grid of slices from a 3-D density plot of the results of the repeated cross-validation
 }
 \description{
 Plots a grid of slices from the 3-D kernel denity estimates of the repeat_cv function

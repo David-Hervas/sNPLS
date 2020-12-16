@@ -29,9 +29,9 @@ sNPLS(
 
 \item{ncomp}{Number of components in the projection}
 
-\item{threshold_j}{Threshold value for the L1 penalty on Wj (scaled between 0-1)}
+\item{threshold_j}{Threshold value on Wj. Scaled between [0, 1)}
 
-\item{threshold_k}{Threshold value for the L1 penalty on Wk (scaled between 0-1)}
+\item{threshold_k}{Threshold value on Wk. scaled between [0, 1)}
 
 \item{keepJ}{Number of variables to keep for each component, ignored if threshold_j is provided}
 
@@ -57,15 +57,19 @@ sNPLS(
 A fitted sNPLS model
 }
 \description{
-Fits a N-PLS regression model imposing a L1 penalization on \code{wj} and \code{wk} matrices
+Fits a N-PLS regression model imposing sparsity on \code{wj} and \code{wk} matrices
 }
 \examples{
 X_npls<-array(rpois(7500, 10), dim=c(50, 50, 3))
 
-Y_npls<-matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
+Y_npls <- matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
-
-fit<-sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
+#Discrete thresholding
+fit <- sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
+#Continuous thresholding
+fit2 <- sNPLS(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5)
+#USe sNPLS-SR method
+fit3 <- sNPLS(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5, method="sNPLS-SR")
 }
 \references{
 C. A. Andersson and R. Bro. The N-way Toolbox for MATLAB Chemometrics & Intelligent Laboratory Systems. 52 (1):1-4, 2000.

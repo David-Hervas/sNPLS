@@ -1,11 +1,11 @@
 #' Fit a sNPLS model
 #'
-#' @description Fits a N-PLS regression model imposing a L1 penalization on \code{wj} and \code{wk} matrices
+#' @description Fits a N-PLS regression model imposing sparsity on \code{wj} and \code{wk} matrices
 #' @param XN A three-way array containing the predictors.
 #' @param Y A matrix containing the response.
 #' @param ncomp Number of components in the projection
-#' @param threshold_j Threshold value for the L1 penalty on Wj (scaled between 0-1)
-#' @param threshold_k Threshold value for the L1 penalty on Wk (scaled between 0-1)
+#' @param threshold_j Threshold value on Wj. Scaled between [0, 1)
+#' @param threshold_k Threshold value on Wk. scaled between [0, 1)
 #' @param keepJ Number of variables to keep for each component, ignored if threshold_j is provided
 #' @param keepK Number of 'times' to keep for each component, ignored if threshold_k is provided
 #' @param scale.X Perform unit variance scaling on X?
@@ -22,10 +22,14 @@
 #' @examples
 #' X_npls<-array(rpois(7500, 10), dim=c(50, 50, 3))
 #'
-#' Y_npls<-matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
+#' Y_npls <- matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
 #' 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
-#'
-#' fit<-sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
+#' #Discrete thresholding
+#' fit <- sNPLS(X_npls, Y_npls, ncomp=3, keepJ = rep(2,3) , keepK = rep(1,3))
+#' #Continuous thresholding
+#' fit2 <- sNPLS(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5)
+#' #USe sNPLS-SR method
+#' fit3 <- sNPLS(X_npls, Y_npls, ncomp=3, threshold_j=0.5, threshold_k=0.5, method="sNPLS-SR")
 #' @importFrom stats sd
 #' @export
 sNPLS <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, keepJ = NULL, keepK = NULL, scale.X=TRUE, center.X=TRUE,
@@ -326,7 +330,7 @@ unfold3w <- function(x) {
 #' @param keepJ A vector with the different number of selected variables to test for discrete thresholding
 #' @param keepK A vector with the different number of selected 'times' to test for discrete thresholding
 #' @param nfold Number of folds for the cross-validation
-#' @param parallel Should the computations be performed in parallel?
+#' @param parallel Should the computations be performed in parallel? Set up strategy first with \code{future::plan()}
 #' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
 #' @param ... Further arguments passed to sNPLS
 #' @return A list with the best parameters for the model and the CV error
@@ -336,14 +340,17 @@ unfold3w <- function(x) {
 #'
 #' Y_npls<-matrix(2+0.4*X_npls[,5,1]+0.7*X_npls[,10,1]-0.9*X_npls[,15,1]+
 #' 0.6*X_npls[,20,1]- 0.5*X_npls[,25,1]+rnorm(50), ncol=1)
-#'
+#' #Grid search for discrete thresholding
 #' cv1<- cv_snpls(X_npls, Y_npls, ncomp=1:2, keepJ = 1:3, keepK = 1:2, parallel = FALSE)
+#' #Random search for continuous thresholding
+#' cv2<- cv_snpls(X_npls, Y_npls, ncomp=1:2, samples=20, parallel = FALSE)
 #' }
 #' @importFrom stats runif
 #' @export
 cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
                      keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  method="sNPLS", ...) {
 
+  if(parallel) cat("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
   if(length(dim(Y_npls)) == 3) Y_npls <- unfold3w(Y_npls)
   top <- ceiling(dim(X_npls)[1]/nfold)
@@ -378,7 +385,7 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
     })
   }
   if (parallel) {
-    cv_res <- future.apply::future_apply(search.grid, 1, applied_fun)
+    cv_res <- future.apply::future_apply(search.grid, 1, applied_fun, future.seed=TRUE)
   } else {
     cv_res <- pbapply::pbapply(search.grid, 1, applied_fun)
   }
@@ -398,10 +405,10 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
 #' @param xval A three-way test array
 #' @param yval A response test matrix
 #' @param ncomp Number of components for the sNPLS model
-#' @param threshold_j Threshold value for the L1 penalty on Wj (scaled between 0-1)
-#' @param threshold_k Threshold value for the L1 penalty on Wk (scaled between 0-1)
-#' @param keepJ Number of variables to keep for each component
-#' @param keepK Number of 'times' to keep for each component
+#' @param threshold_j Threshold value on Wj. Scaled between [0, 1)
+#' @param threshold_k Threshold value on Wk. Scaled between [0, 1)
+#' @param keepJ Number of variables to keep for each component, ignored if threshold_j is provided
+#' @param keepK Number of 'times' to keep for each component, ignored if threshold_k is provided
 #' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
 #' @param ... Further arguments passed to sNPLS
 #' @return Returns the CV mean squared error
@@ -419,13 +426,12 @@ cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshol
 #'
 #' @description Different plots for sNPLS model fits
 #' @param x A sNPLS model fit
-#' @param comps A vector of length two with the components to plot
+#' @param comps Vector with the components to plot. It can be of length \code{ncomp} for types "time" and "variables" and of length 2 otherwise.
 #' @param type The type of plot. One of those: "T", "U", "Wj", "Wk", "time" or "variables"
 #' @param labels Should rownames be added as labels to the plot?
-#' @param group Vector with categorical variable defining groups
+#' @param group Vector with categorical variable defining groups (optional)
 #' @param ... Not used
 #' @return A plot of the type specified in the \code{type} parameter
-#' @importFrom graphics abline matplot plot text layout par plot.new
 #' @export
 plot.sNPLS <- function(x, type = "T", comps = c(1, 2), labels=TRUE, group=NULL, ...) {
   if (type == "T")
@@ -643,11 +649,11 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param Y_npls A matrix containing the response.
 #' @param ncomp A vector with the different number of components to test
 #' @param samples Number of samples for performing random search in continuous thresholding
-#' @param keepJ A vector with the different number of selected variables to test
-#' @param keepK A vector with the different number of selected 'times' to test
+#' @param keepJ A vector with the different number of selected variables to test in discrete thresholding
+#' @param keepK A vector with the different number of selected 'times' to test in discrete thresholding
 #' @param nfold Number of folds for the cross-validation
 #' @param times Number of repetitions of the cross-validation
-#' @param parallel Should the computations be performed in parallel?
+#' @param parallel Should the computations be performed in parallel? Set up strategy first with \code{future::plan()}
 #' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
 #' @param ... Further arguments passed to cv_snpls
 #' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
@@ -655,6 +661,7 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @export
 repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, method="sNPLS", ...){
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
+  if(parallel) cat("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(is.null(keepJ) | is.null(keepK)){
     cont_thresholding <- TRUE
     message("Using continuous thresholding")
@@ -663,7 +670,7 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
     message("Using discrete thresholding")
   }
   if(parallel){
-    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, ...)))
+    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, ...)), future.seed=TRUE)
   } else {
     rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, ...)))
   }
@@ -679,7 +686,7 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
 #' @description Plots a grid of slices from the 3-D kernel denity estimates of the repeat_cv function
 #' @param x A repeatcv object
 #' @param ... Further arguments passed to plot
-#' @return A grid of slices from of a 3-D density plot of the results of the repeated cross-validation
+#' @return A grid of slices from a 3-D density plot of the results of the repeated cross-validation
 #' @importFrom grDevices colorRampPalette
 #' @importFrom stats ftable density setNames
 #' @export
@@ -745,9 +752,9 @@ plot.repeatcv <- function(x, ...){
 #' @importFrom stats coef
 #' @export
 summary.sNPLS <- function(object, ...){
-  cat("sNPLS model with", object$ncomp, "components and squared error of", round(object$SqrdE,3), "\n", "\n")
+  cat(object$Method, "model with", object$ncomp, "components and squared error of", round(object$SqrdE,3), "\n", "\n")
   cat("Coefficients: \n")
-  round(coef(object, as.matrix=TRUE),3)
+  round(coef(object, as.matrix=TRUE), 3)
 }
 
 #' Compute Selectivity Ratio for a sNPLS model

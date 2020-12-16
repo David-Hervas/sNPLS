@@ -29,13 +29,13 @@ cv_fit(
 
 \item{ncomp}{Number of components for the sNPLS model}
 
-\item{threshold_j}{Threshold value for the L1 penalty on Wj (scaled between 0-1)}
+\item{threshold_j}{Threshold value on Wj. Scaled between [0, 1)}
 
-\item{threshold_k}{Threshold value for the L1 penalty on Wk (scaled between 0-1)}
+\item{threshold_k}{Threshold value on Wk. Scaled between [0, 1)}
 
-\item{keepJ}{Number of variables to keep for each component}
+\item{keepJ}{Number of variables to keep for each component, ignored if threshold_j is provided}
 
-\item{keepK}{Number of 'times' to keep for each component}
+\item{keepK}{Number of 'times' to keep for each component, ignored if threshold_k is provided}
 
 \item{method}{Select between sNPLS, sNPLS-SR or sNPLS-VIP}
 
