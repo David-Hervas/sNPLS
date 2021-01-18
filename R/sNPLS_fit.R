@@ -275,7 +275,7 @@ sNPLS <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, keepJ = NU
   colnames(Tm) <- colnames(WsupraJ) <- colnames(WsupraK) <- colnames(B) <-
     colnames(U) <- colnames(Q) <- names(Gu) <- names(P) <- paste("Comp.", 1:ncomp)
   output <- list(T = Tm, Wj = WsupraJ, Wk = WsupraK, B = B, U = U, Q = Q, P = P,
-                 Gu = Gu, ncomp = ncomp, Xd=Xd, Yadj = Yadj, SqrdE = SqrdE,
+                 Gu = Gu, ncomp = ncomp, Xd=Xd, Yorig = Yorig, Yadj = Yadj, SqrdE = SqrdE,
                  Standarization = list(ScaleX = x_scale, CenterX = x_center,
                                        ScaleY = y_scale, CenterY = y_center),
                  Method = method)
@@ -332,6 +332,7 @@ unfold3w <- function(x) {
 #' @param nfold Number of folds for the cross-validation
 #' @param parallel Should the computations be performed in parallel? Set up strategy first with \code{future::plan()}
 #' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
+#' @param metric Select between RMSE or AUC (for 0/1 response)
 #' @param ... Further arguments passed to sNPLS
 #' @return A list with the best parameters for the model and the CV error
 #' @examples
@@ -348,7 +349,7 @@ unfold3w <- function(x) {
 #' @importFrom stats runif
 #' @export
 cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
-                     keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  method="sNPLS", ...) {
+                     keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  method="sNPLS", metric="RMSE", ...) {
 
   if(parallel) message("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
@@ -376,7 +377,7 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
                                       ytrain = Y_npls[x != foldid, , drop = FALSE],
                                       xval = X_npls[x == foldid, , ],
                                       yval = Y_npls[x == foldid, , drop = FALSE],
-                                      ncomp = y["ncomp"], method=method),
+                                      ncomp = y["ncomp"], method=method, metric=metric),
                                  list(threshold_j=y["threshold_j"])[cont_thresholding],
                                  list(threshold_k=y["threshold_k"])[cont_thresholding],
                                  list(keepJ=rep(y["keepJ"], y["ncomp"]))[!cont_thresholding],
@@ -391,7 +392,11 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
   }
   cv_mean <- apply(cv_res, 2, function(x) mean(x, na.rm = TRUE))
   cv_se <- apply(cv_res, 2, function(x) sd(x, na.rm=TRUE)/sqrt(nfold))
-  best_model <- search.grid[which.min(cv_mean), ]
+  if(metric == "RMSE"){
+    best_model <- search.grid[which.min(cv_mean), ]
+  } else{
+    best_model <- search.grid[which.max(cv_mean), ]
+  }
   output <- list(best_parameters = best_model, cv_mean = cv_mean,
                  cv_se = cv_se, cv_grid = search.grid)
   class(output)<-"cvsNPLS"
@@ -410,15 +415,21 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
 #' @param keepJ Number of variables to keep for each component, ignored if threshold_j is provided
 #' @param keepK Number of 'times' to keep for each component, ignored if threshold_k is provided
 #' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
+#' @param metric Performance metric (RMSE or AUC)
 #' @param ... Further arguments passed to sNPLS
-#' @return Returns the CV mean squared error
+#' @return Returns the CV root mean squared error or AUC
 #' @importFrom stats predict
 #' @export
-cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshold_k=NULL, keepJ=NULL, keepK=NULL,  method, ...) {
+cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshold_k=NULL, keepJ=NULL, keepK=NULL,  method, metric, ...) {
   fit <- sNPLS(XN = xtrain, Y = ytrain, ncomp = ncomp, keepJ=keepJ, keepK=keepK, threshold_j = threshold_j,
                  threshold_k = threshold_k, silent = TRUE, method=method, ...)
   Y_pred <- predict(fit, xval)
-  CVE <- sqrt(mean((Y_pred - yval)^2))
+  if(!metric %in% c("RMSE", "AUC")) stop("Invalid metric for cross-validation")
+  if(metric == "RMSE"){
+    CVE <- sqrt(mean((Y_pred - yval)^2))
+  } else{
+    CVE <- as.numeric(pROC::roc(yval ~ Y_pred[,1])$auc)
+  }
   return(CVE)
 }
 
@@ -655,11 +666,12 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param times Number of repetitions of the cross-validation
 #' @param parallel Should the computations be performed in parallel? Set up strategy first with \code{future::plan()}
 #' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
+#' @param metric Select between RMSE or AUC (for 0/1 response)
 #' @param ... Further arguments passed to cv_snpls
 #' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
 #' @importFrom stats var
 #' @export
-repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, method="sNPLS", ...){
+repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, method="sNPLS", metric="RMSE", ...){
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
   if(parallel) message("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(is.null(keepJ) | is.null(keepK)){
@@ -670,9 +682,9 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
     message("Using discrete thresholding")
   }
   if(parallel){
-    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, ...)), future.seed=TRUE)
+    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, metric=metric, ...)), future.seed=TRUE)
   } else {
-    rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, ...)))
+    rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, metric=metric, ...)))
   }
   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), threshold_j=sapply(rep_cv[1,], function(x) x[[2]]),
                       threshold_k=sapply(rep_cv[1,], function(x) x[[3]]))
@@ -755,6 +767,16 @@ summary.sNPLS <- function(object, ...){
   cat(object$Method, "model with", object$ncomp, "components and squared error of", round(object$SqrdE,3), "\n", "\n")
   cat("Coefficients: \n")
   round(coef(object, as.matrix=TRUE), 3)
+}
+
+#' AUC for sNPLS-DA model
+#'
+#' @description AUC for a sNPLS-DA model
+#' @param object A sNPLS object
+#' @return The area under the ROC curve for the model
+#' @export
+auroc <- function(object){
+  as.numeric(pROC::roc(object$Yorig[,1] ~ object$Yadj[,1])$auc)
 }
 
 #' Compute Selectivity Ratio for a sNPLS model

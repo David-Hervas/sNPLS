@@ -14,6 +14,7 @@ cv_snpls(
   nfold = 10,
   parallel = TRUE,
   method = "sNPLS",
+  metric = "RMSE",
   ...
 )
 }
@@ -35,6 +36,8 @@ cv_snpls(
 \item{parallel}{Should the computations be performed in parallel? Set up strategy first with \code{future::plan()}}
 
 \item{method}{Select between sNPLS, sNPLS-SR or sNPLS-VIP}
+
+\item{metric}{Select between RMSE or AUC (for 0/1 response)}
 
 \item{...}{Further arguments passed to sNPLS}
 }
