@@ -9,6 +9,8 @@ cv_snpls(
   Y_npls,
   ncomp = 1:3,
   samples = 20,
+  threshold_j = c(0, 1),
+  threshold_k = c(0, 1),
   keepJ = NULL,
   keepK = NULL,
   nfold = 10,
@@ -26,6 +28,10 @@ cv_snpls(
 \item{ncomp}{A vector with the different number of components to test}
 
 \item{samples}{Number of samples for performing random search in continuous thresholding}
+
+\item{threshold_j}{Vector with threshold min and max values on Wj. Scaled between [0, 1)}
+
+\item{threshold_k}{Vector with threshold min and max values on Wk. Scaled between [0, 1)}
 
 \item{keepJ}{A vector with the different number of selected variables to test for discrete thresholding}
 

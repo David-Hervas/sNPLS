@@ -11,6 +11,8 @@ repeat_cv(
   samples = 20,
   keepJ = NULL,
   keepK = NULL,
+  threshold_j = c(0, 1),
+  threshold_k = c(0, 1),
   nfold = 10,
   times = 30,
   parallel = TRUE,
@@ -31,6 +33,10 @@ repeat_cv(
 \item{keepJ}{A vector with the different number of selected variables to test in discrete thresholding}
 
 \item{keepK}{A vector with the different number of selected 'times' to test in discrete thresholding}
+
+\item{threshold_j}{Vector with threshold min and max values on Wj. Scaled between [0, 1)}
+
+\item{threshold_k}{Vector with threshold min and max values on Wk. Scaled between [0, 1)}
 
 \item{nfold}{Number of folds for the cross-validation}
 
