@@ -813,3 +813,46 @@ SR <- function(model){
   colnames(SR_j) <- colnames(SR_k) <- paste("Component ", 1:model$ncomp, sep="")
   list(SR_j=SR_j, SR_k=SR_k)
 }
+
+#' Genetic Algorithm for selection of hyperparameter values
+#'
+#' @description Runs a genetic algorithm to select the best combination of hyperparameter values
+#' @param X A three-way array containing the predictors.
+#' @param Y A matrix containing the response.
+#' @param ncomp A vector with the minimum and maximum number of components to assess
+#' @param threshold_j Vector with threshold min and max values on Wj. Scaled between [0, 1)
+#' @param threshold_k Vector with threshold min and max values on Wk. Scaled between [0, 1)
+#' @param maxiter Maximum number of iterations (generations) of the genetic algorithm
+#' @param popSize Population size (see \code{GA::ga()} documentation)
+#' @param parallel Should the computations be performed in parallel? (see \code{GA::ga()} documentation)
+#' @param replicates Number of replicates for the cross-validation performed in the fitness function of the genetic algoritm
+#' @param metric Select between RMSE or AUC (for 0/1 response)
+#' @param method Select between sNPLS, sNPLS-SR or sNPLS-VIP
+#' @param ... Further arguments passed to \code{GA::ga()}
+#' @return A summary of the genetic algorithm results
+#' @importFrom GA ga
+#' @importFrom pbapply pblapply
+#' @export
+ga_snpls <- function(X, Y, ncomp=c(1, 3), threshold_j=c(0, 1), threshold_k=c(0, 1), maxiter=20,
+                     popSize=50, parallel=TRUE, replicates=10, metric="RMSE", method="sNPLS", ...){
+
+  fitness_function <- function(x) {
+    # Calculate the performance of the model with the hyperparameters
+    performance <- mean(pbapply::pbreplicate(replicates, suppressMessages(cv_snpls(X, Y, ncomp=round(x[1]), threshold_j = rep(x[2], 2), threshold_k = rep(x[3], 2), samples = 1, metric=metric, method = "sNPLS")$cv_mean)))
+    if(metric == "AUC") performance else -performance
+  }
+
+  res <- as.data.frame(GA::ga(type = "real-valued",
+                              fitness = fitness_function,
+                              lower = c(ncomp=ncomp[1]-0.5, threshold_j=threshold_j[1], threshold_k=threshold_k[1]),
+                              upper = c(ncomp=ncomp[2]+0.5, threshold_j=threshold_j[2], threshold_k=threshold_k[2]),
+                              maxiter = maxiter,
+                              popSize = popSize,
+                              parallel=parallel, ...)@summary)
+  if(metric == "RMSE"){
+    res <- res*-1
+    names(res) <- c("min", "mean", "q1", "median", "q3", "max")
+  }
+  res$iteration <- 1:nrow(res)
+  res
+}
