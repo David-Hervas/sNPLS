@@ -327,6 +327,8 @@ unfold3w <- function(x) {
 #' @param Y_npls A matrix containing the response.
 #' @param ncomp A vector with the different number of components to test
 #' @param samples Number of samples for performing random search in continuous thresholding
+#' @param threshold_j Vector with threshold min and max values on Wj. Scaled between [0, 1)
+#' @param threshold_k Vector with threshold min and max values on Wk. Scaled between [0, 1)
 #' @param keepJ A vector with the different number of selected variables to test for discrete thresholding
 #' @param keepK A vector with the different number of selected 'times' to test for discrete thresholding
 #' @param nfold Number of folds for the cross-validation
@@ -348,8 +350,9 @@ unfold3w <- function(x) {
 #' }
 #' @importFrom stats runif
 #' @export
-cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
-                     keepJ = NULL, keepK = NULL, nfold = 10, parallel = TRUE,  method="sNPLS", metric="RMSE", ...) {
+cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples = 20, threshold_j = c(0, 1),
+                     threshold_k = c(0, 1), keepJ = NULL, keepK = NULL, nfold = 10,
+                     parallel = TRUE,  method="sNPLS", metric="RMSE", ...) {
 
   if(parallel) message("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
@@ -364,8 +367,9 @@ cv_snpls <- function(X_npls, Y_npls, ncomp = 1:3, samples=20,
     message("Using discrete thresholding")
   }
   if(cont_thresholding){
-    search.grid <- expand.grid(list(ncomp = ncomp, threshold_j=runif(samples),
-                                    threshold_k=runif(samples)))
+    search.grid <- expand.grid(list(ncomp = ncomp,
+                                    threshold_j = runif(samples, min = threshold_j[1], max = threshold_j[2]),
+                                    threshold_k = runif(samples, min = threshold_k[1], max = threshold_k[2])))
   } else {
     search.grid <- expand.grid(list(ncomp = ncomp, keepJ = keepJ,
                                     keepK = keepK))
@@ -662,6 +666,8 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @param samples Number of samples for performing random search in continuous thresholding
 #' @param keepJ A vector with the different number of selected variables to test in discrete thresholding
 #' @param keepK A vector with the different number of selected 'times' to test in discrete thresholding
+#' @param threshold_j Vector with threshold min and max values on Wj. Scaled between [0, 1)
+#' @param threshold_k Vector with threshold min and max values on Wk. Scaled between [0, 1)
 #' @param nfold Number of folds for the cross-validation
 #' @param times Number of repetitions of the cross-validation
 #' @param parallel Should the computations be performed in parallel? Set up strategy first with \code{future::plan()}
@@ -671,7 +677,9 @@ coef.sNPLS <- function(object, as.matrix = FALSE, ...) {
 #' @return A density plot with the results of the cross-validation and an (invisible) \code{data.frame} with these results
 #' @importFrom stats var
 #' @export
-repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL, nfold = 10, times=30, parallel = TRUE, method="sNPLS", metric="RMSE", ...){
+repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK=NULL,
+                      threshold_j = c(0, 1), threshold_k = c(0, 1), nfold = 10, times=30,
+                      parallel = TRUE, method="sNPLS", metric="RMSE", ...){
   if(!method %in% c("sNPLS", "sNPLS-SR", "sNPLS-VIP")) stop("'method' not recognized")
   if(parallel) message("Your parallel configuration is ", attr(future::plan(), "class")[3])
   if(is.null(keepJ) | is.null(keepK)){
@@ -682,9 +690,9 @@ repeat_cv <- function(X_npls, Y_npls, ncomp = 1:3, samples=20, keepJ=NULL, keepK
     message("Using discrete thresholding")
   }
   if(parallel){
-    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, metric=metric, ...)), future.seed=TRUE)
+    rep_cv<-future.apply::future_sapply(1:times, function(x) suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, threshold_j=threshold_j, threshold_k=threshold_k, method=method, metric=metric, ...)), future.seed=TRUE)
   } else {
-    rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, method=method, metric=metric, ...)))
+    rep_cv<-pbapply::pbreplicate(times, suppressMessages(cv_snpls(X_npls, Y_npls, ncomp=ncomp, parallel = FALSE, nfold = nfold, samples=samples, keepJ=keepJ, keepK=keepK, threshold_j=threshold_j, threshold_k=threshold_k, method=method, metric=metric, ...)))
   }
   resdata<-data.frame(ncomp=sapply(rep_cv[1,], function(x) x[[1]]), threshold_j=sapply(rep_cv[1,], function(x) x[[2]]),
                       threshold_k=sapply(rep_cv[1,], function(x) x[[3]]))
