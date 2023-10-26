@@ -97,7 +97,7 @@ sNPLS <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, keepJ = NU
   B <- matrix(0, ncol = ncomp, nrow = ncomp)
   Gu <- vector("list", ncomp)
   S <- svd(Y)$d
-  u <- Y[, S == max(S)]  #Column with the highest variance
+  u <- Y[, which.max(S)]  #Column with the highest variance
 
   # Unfolding of XN en 2-D
   X <- unfold3w(XN)
@@ -258,7 +258,7 @@ sNPLS <- function(XN, Y, ncomp = 2, threshold_j=0.5, threshold_k=0.5, keepJ = NU
           Y <- Y - Tm[,1:f, drop=FALSE] %*% bf %*% t(qf)
         }
         S <- svd(Y)$d
-        u <- Y[, S == max(S)]
+        u <- Y[, which.max(S)]
       } else {
         u <- uf
         it <- it + 1
