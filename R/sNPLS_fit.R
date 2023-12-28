@@ -432,7 +432,8 @@ cv_fit <- function(xtrain, ytrain, xval, yval, ncomp, threshold_j=NULL, threshol
   if(metric == "RMSE"){
     CVE <- sqrt(mean((Y_pred - yval)^2))
   } else{
-    CVE <- as.numeric(pROC::roc(yval ~ Y_pred[,1])$auc)
+    #CVE <- as.numeric(pROC::roc(yval ~ Y_pred[,1])$auc)
+    CVE <- as.numeric(pROC::roc(as.vector(yval) ~ as.vector(Y_pred))$auc)
   }
   return(CVE)
 }
