@@ -476,7 +476,7 @@ plot_T <- function(x, comps, labels, group=NULL){
   df <- data.frame(x$T)[comps]
   if(!is.null(group)) df <- data.frame(df, group=as.factor(group))
   names(df)[1:2] <- paste("Comp.", comps, sep="")
-  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+  p1 <- ggplot2::ggplot(df, ggplot2::aes(x=.data[[names(df)[1]]], y=.data[[names(df)[2]]])) +
     ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
                                                                       lty=2) +
     ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
@@ -498,7 +498,7 @@ plot_U <- function(x, comps, labels, group=NULL){
   df <- data.frame(x$U)[comps]
   if(!is.null(group)) df <- data.frame(df, group=as.factor(group))
   names(df)[1:2] <- paste("Comp.", comps, sep="")
-  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+  p1 <- ggplot2::ggplot(df, ggplot2::aes(x=.data[[names(df)[1]]], y=.data[[names(df)[2]]])) +
     ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
                                                                       lty=2) +
     ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
@@ -520,7 +520,7 @@ plot_Wj <- function(x, comps, labels){
   names(df) <- paste("Comp.", comps, sep="")
   var_names_zero <- rownames(df)
   var_names_zero[rowSums(df)==0]<- ""
-  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+  p1 <- ggplot2::ggplot(df, ggplot2::aes(x=.data[[names(df)[1]]], y=.data[[names(df)[2]]])) +
     ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
                                                                       lty=2) +
     ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
@@ -541,7 +541,7 @@ plot_Wk <- function(x, comps, labels){
   names(df) <- paste("Comp.", comps, sep="")
   var_names_zero <- rownames(df)
   var_names_zero[rowSums(df)==0]<- ""
-  p1 <- ggplot2::ggplot(df, ggplot2::aes_string(x=names(df)[1], y=names(df)[2])) +
+  p1 <- ggplot2::ggplot(df, ggplot2::aes(x=.data[[names(df)[1]]], y=.data[[names(df)[2]]])) +
     ggplot2::geom_point() + ggplot2::theme_bw() + ggplot2::geom_vline(xintercept = 0,
                                                                       lty=2) +
     ggplot2::geom_hline(yintercept = 0, lty=2) + ggplot2::xlab(names(df)[1]) +
@@ -559,8 +559,9 @@ plot_Wk <- function(x, comps, labels){
 plot_time <- function(x, comps){
   df <- clickR::forge(data.frame(row=1:nrow(x$Wk), x$Wk), affixes=as.character(comps),
                       var.name="Component")
-  ggplot2::ggplot(df, ggplot2::aes_string(x="row", y="Comp..", color="Component")) +
-    ggplot2::geom_line(lwd=1.05) + ggplot2::theme_bw() +
+  ggplot2::ggplot(df, ggplot2::aes(x=.data[["row"]], xend=.data[["row"]],
+                                   y=0, yend=.data[["Comp.."]], color=.data[["Component"]])) +
+    ggplot2::geom_segment(lwd=1.05, alpha=0.8) + ggplot2::theme_bw() +
     ggplot2::geom_hline(yintercept = 0, alpha=0.2) +
     ggplot2::xlab("Time (index)") + ggplot2::ylab("Wk") +
     ggplot2::theme(axis.text = ggplot2::element_text(size=12),
@@ -575,8 +576,9 @@ plot_time <- function(x, comps){
 plot_variables <- function(x, comps){
   df <- clickR::forge(data.frame(row=1:nrow(x$Wj), x$Wj), affixes=as.character(comps),
                       var.name="Component")
-  ggplot2::ggplot(df, ggplot2::aes_string(x="row", y="Comp..", color="Component")) +
-    ggplot2::geom_line(lwd=1.05) + ggplot2::theme_bw() +
+  ggplot2::ggplot(df, ggplot2::aes(x=.data[["row"]], xend=.data[["row"]],
+                                   y=0, yend=.data[["Comp.."]], color=.data[["Component"]])) +
+    ggplot2::geom_segment(lwd=1.05, alpha=0.8) + ggplot2::theme_bw() +
     ggplot2::geom_hline(yintercept = 0, alpha=0.2) +
     ggplot2::xlab("Variable (index)") + ggplot2::ylab("Wj") +
     ggplot2::theme(axis.text = ggplot2::element_text(size=12),
@@ -630,10 +632,10 @@ plot.cvsNPLS <- function(x, ...) {
   df_grid <- data.frame(threshold_j=x$cv_grid[,2], threshold_k=x$cv_grid[,3], CVE=x$cv_mean, Ncomp=paste("Ncomp =", x$cv_grid$ncomp, sep=" "))
   if(!cont_thresholding) names(df_grid)[c(1, 2)] <- c("KeepJ", "KeepK")
   if(cont_thresholding){
-    ggplot2::ggplot(df_grid, ggplot2::aes_string(x="threshold_j", y="CVE"))+ggplot2::geom_point()+ggplot2::geom_smooth()+ggplot2::facet_grid(cut(threshold_k,10) ~ Ncomp)+
+    ggplot2::ggplot(df_grid, ggplot2::aes(x=.data[["threshold_j"]], y=.data[["CVE"]]))+ggplot2::geom_point()+ggplot2::geom_smooth()+ggplot2::facet_grid(cut(threshold_k,10) ~ Ncomp)+
       ggplot2::theme_bw()
   } else {
-      ggplot2::ggplot(df_grid, ggplot2::aes_string(x="KeepJ", y="CVE"))+ggplot2::geom_point()+ggplot2::geom_line()+ggplot2::facet_grid(KeepK ~ Ncomp)+
+      ggplot2::ggplot(df_grid, ggplot2::aes(x=.data[["KeepJ"]], y=.data[["CVE"]]))+ggplot2::geom_point()+ggplot2::geom_line()+ggplot2::facet_grid(KeepK ~ Ncomp)+
         ggplot2::theme_bw()
   }
 }
@@ -718,7 +720,7 @@ plot.repeatcv <- function(x, ...){
   if(ncol(x) == 1){
     densities <- density(x[,1])
     df_grid <- setNames(data.frame(densities$x, densities$y), c(colnames(x), "density"))
-    p <- ggplot2::ggplot(x, ggplot2::aes_string(x=colnames(x)))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
+    p <- ggplot2::ggplot(x, ggplot2::aes(x=.data[[colnames(x)]]))+ggplot2::geom_density(color="gray", fill="gray", alpha=0.3)+ggplot2::theme_classic()
   } else{
     H.pi <- ks::Hpi(x)
     fhat <- ks::kde(x, H=H.pi, compute.cont=TRUE, gridsize = rep(151, ncol(x)))
@@ -731,9 +733,9 @@ plot.repeatcv <- function(x, ...){
       df_grid <- df_grid[rep(1:nrow(df_grid), length(ncomp_values)),]
       df_grid$density <- unlist(lapply(ncomp_values, function(x) as.numeric(matrix(fhat$estimate[x,,], ncol=1))))
       df_grid$Ncomp <- factor(rep(sort(unique(positions$ncomp)), each=combl))
-      p <- ggplot2::ggplot(df_grid, ggplot2::aes_string(names(df_grid)[1], names(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
+      p <- ggplot2::ggplot(df_grid, ggplot2::aes(.data[[names(df_grid)[1]]], .data[[names(df_grid)[2]]], fill=.data[["density"]]))+ggplot2::geom_raster()+
         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
-        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=names(df_grid)[1], y=names(df_grid)[2]), data=positions) +ggplot2::facet_grid(~Ncomp)
+        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes(x=.data[[names(df_grid)[1]]], y=.data[[names(df_grid)[2]]]), data=positions) +ggplot2::facet_grid(~Ncomp)
       if(names(df_grid)[1] == "threshold_j"){
         p <- p + ggplot2::scale_x_continuous(limits=c(0, 1)) + ggplot2::scale_y_continuous(limits=c(0, 1))
       } else {
@@ -747,9 +749,9 @@ plot.repeatcv <- function(x, ...){
       df_grid <- expand.grid(V1=fhat$eval.points[[1]], V2=fhat$eval.points[[2]])
       names(df_grid)<-colnames(positions)
       df_grid$density <- as.numeric(matrix(fhat$estimate, ncol=1))
-      p <- ggplot2::ggplot(df_grid, ggplot2::aes_string(colnames(df_grid)[1], colnames(df_grid)[2], fill="density"))+ggplot2::geom_raster()+
+      p <- ggplot2::ggplot(df_grid, ggplot2::aes(.data[[colnames(df_grid)[1]]], .data[[colnames(df_grid)[2]]], fill=.data[["density"]]))+ggplot2::geom_raster()+
         ggplot2::scale_fill_gradientn(colours =colorRampPalette(c("white", "blue", "red"))(10))+ggplot2::theme_classic()+
-        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes_string(x=colnames(df_grid)[1], y=colnames(df_grid)[2]), data=positions)
+        ggplot2::geom_count(inherit.aes = FALSE, ggplot2::aes(x=.data[[colnames(df_grid)[1]]], y=.data[[colnames(df_grid)[2]]]), data=positions)
       if("threshold_j" %in% names(df_grid) | "threshold_k" %in% names(df_grid)){
         p <- p + ggplot2::scale_x_continuous(limits=c(0, 1)) + ggplot2::scale_y_continuous(limits=c(0, 1))
       } else {
